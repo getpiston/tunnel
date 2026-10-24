@@ -31617,10 +31617,14 @@ function getIDToken(aud) {
 const AGENT_URL = 'http://172.17.0.1:7843/tunnel';
 async function run(surroundings) {
     const connectorName = getInput('connector_name');
+    if (!connectorName) {
+        setFailed("connector_name is required: the network connector's name, as the console shows it");
+        return;
+    }
     const timeoutInput = getInput('timeout');
     const timeoutSeconds = Number(timeoutInput);
-    if (!/^\d+$/.test(timeoutInput) || timeoutSeconds < 1 || timeoutSeconds > 65535) {
-        setFailed(`timeout is a whole number of seconds from 1 to 65535, not '${timeoutInput}'`);
+    if (!/^\d+$/.test(timeoutInput) || timeoutSeconds < 1 || timeoutSeconds > 290) {
+        setFailed(`timeout is a whole number of seconds from 1 to 290, not '${timeoutInput}'`);
         return;
     }
     let status;
@@ -31653,7 +31657,7 @@ async function run(surroundings) {
             body: JSON.stringify({
                 token,
                 timeout_seconds: timeoutSeconds,
-                ...(connectorName ? { connector_name: connectorName } : {}),
+                connector_name: connectorName,
             }),
             signal: AbortSignal.timeout((timeoutSeconds + 10) * 1000),
         });
@@ -31670,9 +31674,8 @@ async function run(surroundings) {
     const answer = (await response.json());
     if (answer.state === 'connected') {
         const rules = answer.matched_rules ?? [];
-        setOutput('connector_name', answer.connector_name ?? '');
         setOutput('matched_rules', rules.join(', '));
-        info(`Piston tunnel${answer.connector_name ? ` to ${answer.connector_name}` : ''} connected${rules.length ? `, admitted by ${rules.join(', ')}` : ''}`);
+        info(`Piston tunnel to ${connectorName} connected${rules.length ? `, admitted by ${rules.join(', ')}` : ''}`);
         return;
     }
     setFailed(answer.reason ?? `the tunnel is ${answer.state}`);
