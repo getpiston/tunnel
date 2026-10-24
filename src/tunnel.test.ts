@@ -41,7 +41,11 @@ function agent(
   return new Promise((resolve) => {
     server.listen(0, '127.0.0.1', () => {
       const { port } = server.address() as AddressInfo
-      resolve({ url: `http://127.0.0.1:${port}/tunnel`, asks, close: () => server.close() })
+      resolve({
+        url: `http://127.0.0.1:${port}/tunnel`,
+        asks,
+        close: () => server.close(),
+      })
     })
   })
 }
@@ -51,13 +55,13 @@ const failed = vi.mocked(core.setFailed)
 const info = vi.mocked(core.info)
 
 beforeEach(() => {
-  process.env.INPUT_CONNECTOR = 'prod-vpc'
+  process.env.INPUT_CONNECTOR_NAME = 'prod-vpc'
   process.env.INPUT_TIMEOUT = '30'
 })
 
 afterEach(() => {
   vi.clearAllMocks()
-  delete process.env.INPUT_CONNECTOR
+  delete process.env.INPUT_CONNECTOR_NAME
   delete process.env.INPUT_TIMEOUT
 })
 
@@ -67,7 +71,7 @@ describe('the step', () => {
       status: 200,
       body: {
         state: 'connected',
-        connector: 'prod-vpc',
+        connector_name: 'prod-vpc',
         matched_rules: ['routing rule 1 (deploys)', 'routing rule 3'],
         audience: 'https://api.example.test',
       },
@@ -78,9 +82,13 @@ describe('the step', () => {
     expect(idToken).toHaveBeenCalledWith('https://api.example.test')
     expect(core.setSecret).toHaveBeenCalledWith('token-for-https://api.example.test')
     expect(stub.asks).toEqual([
-      { token: 'token-for-https://api.example.test', timeout_seconds: 30, connector: 'prod-vpc' },
+      {
+        token: 'token-for-https://api.example.test',
+        timeout_seconds: 30,
+        connector_name: 'prod-vpc',
+      },
     ])
-    expect(core.setOutput).toHaveBeenCalledWith('connector', 'prod-vpc')
+    expect(core.setOutput).toHaveBeenCalledWith('connector_name', 'prod-vpc')
     expect(core.setOutput).toHaveBeenCalledWith(
       'matched_rules',
       'routing rule 1 (deploys), routing rule 3'
@@ -92,7 +100,7 @@ describe('the step', () => {
   })
 
   it('leaves the name out of the ask when the step has none', async () => {
-    process.env.INPUT_CONNECTOR = ''
+    process.env.INPUT_CONNECTOR_NAME = ''
     const stub = await agent({
       status: 200,
       body: { state: 'connected', audience: 'https://api.example.test' },
@@ -111,7 +119,7 @@ describe('the step', () => {
       status: 200,
       body: {
         state: 'failed',
-        connector: 'prod-vpc',
+        connector_name: 'prod-vpc',
         reason: 'no connector online for prod-vpc',
         audience: 'https://api.example.test',
       },
@@ -125,7 +133,10 @@ describe('the step', () => {
   it("fails the step with the agent's message when it refuses the ask", async () => {
     const stub = await agent({
       status: 409,
-      body: { error: 'another_tunnel', message: 'this VM already holds the tunnel staging-vpc' },
+      body: {
+        error: 'another_tunnel',
+        message: 'this VM already holds the tunnel staging-vpc',
+      },
     })
     await run({ agentUrl: stub.url, idToken })
     stub.close()
