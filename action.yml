@@ -9,18 +9,13 @@ branding:
   color: purple
 inputs:
   connector_name:
-    description: >
-      The network connector's name, as the Piston console shows it. May be left
-      out when exactly one of the organization's connectors admits the job.
-    required: false
-    default: ""
+    description: The network connector's name, as the Piston console shows it.
+    required: true
   timeout:
-    description: How many seconds the tunnel may take to come up.
+    description: How many seconds the tunnel may take to come up, at most 290.
     required: false
     default: "30"
 outputs:
-  connector_name:
-    description: The name of the network connector the job is connected to.
   matched_rules:
     description: >
       The routing rules that admitted the job, comma separated, each as the

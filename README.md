@@ -29,12 +29,11 @@ jobs:
 
 | Input | Default | Is |
 |---|---|---|
-| `connector_name` | none | the network connector's name, as the console shows it; may be left out when exactly one connector admits the job |
-| `timeout` | `30` | how many seconds the tunnel may take to come up |
+| `connector_name` | required | the network connector's name, as the console shows it |
+| `timeout` | `30` | how many seconds the tunnel may take to come up, at most 290 |
 
 | Output | Is |
 |---|---|
-| `connector_name` | the name of the network connector the job is connected to |
 | `matched_rules` | the routing rules that admitted the job, comma separated, each as the console numbers it with its name when it has one |
 
 The job needs `permissions: id-token: write`; without it the step fails at

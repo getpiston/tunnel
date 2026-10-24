@@ -7,7 +7,6 @@ export const AGENT_URL = 'http://172.17.0.1:7843/tunnel'
 /** The agent's answer to a read and to an ask: the tunnel's state and the audience the token is for. */
 interface Status {
   state: 'none' | 'connecting' | 'connected' | 'failed'
-  connector_name?: string
   reason?: string
   /** The routing rules that admitted the job, as the console names them. */
   matched_rules?: string[]
@@ -29,10 +28,16 @@ export interface Surroundings {
 
 export async function run(surroundings: Surroundings): Promise<void> {
   const connectorName = core.getInput('connector_name')
+  if (!connectorName) {
+    core.setFailed(
+      "connector_name is required: the network connector's name, as the console shows it"
+    )
+    return
+  }
   const timeoutInput = core.getInput('timeout')
   const timeoutSeconds = Number(timeoutInput)
-  if (!/^\d+$/.test(timeoutInput) || timeoutSeconds < 1 || timeoutSeconds > 65535) {
-    core.setFailed(`timeout is a whole number of seconds from 1 to 65535, not '${timeoutInput}'`)
+  if (!/^\d+$/.test(timeoutInput) || timeoutSeconds < 1 || timeoutSeconds > 290) {
+    core.setFailed(`timeout is a whole number of seconds from 1 to 290, not '${timeoutInput}'`)
     return
   }
 
@@ -72,7 +77,7 @@ export async function run(surroundings: Surroundings): Promise<void> {
       body: JSON.stringify({
         token,
         timeout_seconds: timeoutSeconds,
-        ...(connectorName ? { connector_name: connectorName } : {}),
+        connector_name: connectorName,
       }),
       signal: AbortSignal.timeout((timeoutSeconds + 10) * 1000),
     })
@@ -88,10 +93,9 @@ export async function run(surroundings: Surroundings): Promise<void> {
   const answer = (await response.json()) as Status
   if (answer.state === 'connected') {
     const rules = answer.matched_rules ?? []
-    core.setOutput('connector_name', answer.connector_name ?? '')
     core.setOutput('matched_rules', rules.join(', '))
     core.info(
-      `Piston tunnel${answer.connector_name ? ` to ${answer.connector_name}` : ''} connected${
+      `Piston tunnel to ${connectorName} connected${
         rules.length ? `, admitted by ${rules.join(', ')}` : ''
       }`
     )

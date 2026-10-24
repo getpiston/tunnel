@@ -87,7 +87,6 @@ describe('the step', () => {
         connector_name: 'prod-vpc',
       },
     ])
-    expect(core.setOutput).toHaveBeenCalledWith('connector_name', 'prod-vpc')
     expect(core.setOutput).toHaveBeenCalledWith(
       'matched_rules',
       'routing rule 1 (deploys), routing rule 3'
@@ -98,19 +97,14 @@ describe('the step', () => {
     expect(failed).not.toHaveBeenCalled()
   })
 
-  it('leaves the name out of the ask when the step has none', async () => {
+  it('fails the step at once without connector_name, and asks the agent nothing', async () => {
     process.env.INPUT_CONNECTOR_NAME = ''
-    const stub = await agent({
-      status: 200,
-      body: { state: 'connected', audience: 'https://api.runners.eu.test.piston.sh' },
-    })
+    const stub = await agent({ status: 200, body: {} })
     await run({ agentUrl: stub.url, idToken })
     stub.close()
 
-    expect(stub.asks).toEqual([
-      { token: 'token-for-https://api.runners.eu.test.piston.sh', timeout_seconds: 30 },
-    ])
-    expect(info).toHaveBeenCalledWith('Piston tunnel connected')
+    expect(failed).toHaveBeenCalledWith(expect.stringContaining('connector_name is required'))
+    expect(stub.asks).toEqual([])
   })
 
   it("fails the step with the agent's reason when the tunnel fails", async () => {
@@ -184,7 +178,7 @@ describe('the step', () => {
     await run({ agentUrl: 'http://127.0.0.1:9/tunnel', idToken })
 
     expect(failed).toHaveBeenCalledWith(
-      "timeout is a whole number of seconds from 1 to 65535, not 'soon'"
+      "timeout is a whole number of seconds from 1 to 290, not 'soon'"
     )
   })
 })
