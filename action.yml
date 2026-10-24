@@ -8,7 +8,7 @@ branding:
   icon: shield
   color: purple
 inputs:
-  connector:
+  connector_name:
     description: >
       The network connector's name, as the Piston console shows it. May be left
       out when exactly one of the organization's connectors admits the job.
@@ -19,7 +19,7 @@ inputs:
     required: false
     default: "30"
 outputs:
-  connector:
+  connector_name:
     description: The name of the network connector the job is connected to.
   matched_rules:
     description: >

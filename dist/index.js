@@ -31616,7 +31616,7 @@ function getIDToken(aud) {
 /** The agent on every Piston runner, reached from the job and from its containers alike. */
 const AGENT_URL = 'http://172.17.0.1:7843/tunnel';
 async function run(surroundings) {
-    const connector = getInput('connector');
+    const connectorName = getInput('connector_name');
     const timeoutInput = getInput('timeout');
     const timeoutSeconds = Number(timeoutInput);
     if (!/^\d+$/.test(timeoutInput) || timeoutSeconds < 1 || timeoutSeconds > 65535) {
@@ -31649,7 +31649,7 @@ async function run(surroundings) {
             body: JSON.stringify({
                 token,
                 timeout_seconds: timeoutSeconds,
-                ...(connector ? { connector } : {}),
+                ...(connectorName ? { connector_name: connectorName } : {}),
             }),
             signal: AbortSignal.timeout((timeoutSeconds + 10) * 1000),
         });
@@ -31666,9 +31666,9 @@ async function run(surroundings) {
     const answer = (await response.json());
     if (answer.state === 'connected') {
         const rules = answer.matched_rules ?? [];
-        setOutput('connector', answer.connector ?? '');
+        setOutput('connector_name', answer.connector_name ?? '');
         setOutput('matched_rules', rules.join(', '));
-        info(`Piston tunnel${answer.connector ? ` to ${answer.connector}` : ''} connected${rules.length ? `, admitted by ${rules.join(', ')}` : ''}`);
+        info(`Piston tunnel${answer.connector_name ? ` to ${answer.connector_name}` : ''} connected${rules.length ? `, admitted by ${rules.join(', ')}` : ''}`);
         return;
     }
     setFailed(answer.reason ?? `the tunnel is ${answer.state}`);

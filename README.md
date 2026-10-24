@@ -23,18 +23,18 @@ jobs:
     steps:
       - uses: getpiston/tunnel@v1
         with:
-          connector: prod-vpc
+          connector_name: prod-vpc
       - run: psql "postgres://app@postgres.db.svc.cluster.local/app" -c 'select 1'
 ```
 
 | Input | Default | Is |
 |---|---|---|
-| `connector` | none | the network connector's name, as the console shows it; may be left out when exactly one connector admits the job |
+| `connector_name` | none | the network connector's name, as the console shows it; may be left out when exactly one connector admits the job |
 | `timeout` | `30` | how many seconds the tunnel may take to come up |
 
 | Output | Is |
 |---|---|
-| `connector` | the name of the network connector the job is connected to |
+| `connector_name` | the name of the network connector the job is connected to |
 | `matched_rules` | the routing rules that admitted the job, comma separated, each as the console numbers it with its name when it has one |
 
 The job needs `permissions: id-token: write`; without it the step fails at
