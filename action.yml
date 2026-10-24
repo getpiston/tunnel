@@ -1,0 +1,30 @@
+name: Piston tunnel
+description: >
+  Opens a tunnel from the job to one of its organization's Piston network
+  connectors, so it reaches the services the connector's routing rules grant
+  it, by name or by address.
+author: Piston
+branding:
+  icon: shield
+  color: purple
+inputs:
+  connector:
+    description: >
+      The network connector's name, as the Piston console shows it. May be left
+      out when exactly one of the organization's connectors admits the job.
+    required: false
+    default: ""
+  timeout:
+    description: How many seconds the tunnel may take to come up.
+    required: false
+    default: "30"
+outputs:
+  connector:
+    description: The name of the network connector the job is connected to.
+  matched_rules:
+    description: >
+      The routing rules that admitted the job, comma separated, each as the
+      console numbers it, with its name when it has one.
+runs:
+  using: node24
+  main: dist/index.js

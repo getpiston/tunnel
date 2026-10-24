@@ -1,0 +1,28 @@
+{
+  "name": "piston-tunnel-action",
+  "private": true,
+  "description": "The getpiston/tunnel action: connects a job on a Piston runner to one of its organization's tunnels",
+  "license": "UNLICENSED",
+  "type": "module",
+  "scripts": {
+    "lint": "biome check .",
+    "format": "biome format --write .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "build": "tsc && ncc build build/main.js -o dist --license licenses.txt",
+    "check": "npm run lint && npm run typecheck && npm test && npm run build"
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "dependencies": {
+    "@actions/core": "3.0.1"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.6.2",
+    "@types/node": "26.6.5",
+    "@vercel/ncc": "0.45.0",
+    "typescript": "7.0.2",
+    "vitest": "5.0.5"
+  }
+}
