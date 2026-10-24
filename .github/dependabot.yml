@@ -1,0 +1,12 @@
+# A bump of a runtime dependency changes the bundle: run `npm run build` on
+# Dependabot's branch and commit dist/ before merging, or CI stays red.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
