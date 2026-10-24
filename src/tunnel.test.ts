@@ -9,7 +9,6 @@ vi.mock('@actions/core', async (importOriginal) => ({
   ...(await importOriginal<typeof core>()),
   setFailed: vi.fn(),
   setOutput: vi.fn(),
-  setSecret: vi.fn(),
   info: vi.fn(),
 }))
 
@@ -80,7 +79,6 @@ describe('the step', () => {
     stub.close()
 
     expect(idToken).toHaveBeenCalledWith('https://api.example.test')
-    expect(core.setSecret).toHaveBeenCalledWith('token-for-https://api.example.test')
     expect(stub.asks).toEqual([
       {
         token: 'token-for-https://api.example.test',
@@ -134,14 +132,16 @@ describe('the step', () => {
     const stub = await agent({
       status: 409,
       body: {
-        error: 'another_tunnel',
-        message: 'this VM already holds the tunnel staging-vpc',
+        error: 'another_connector',
+        message: 'this VM is already connected to the network connector staging-vpc',
       },
     })
     await run({ agentUrl: stub.url, idToken })
     stub.close()
 
-    expect(failed).toHaveBeenCalledWith('this VM already holds the tunnel staging-vpc')
+    expect(failed).toHaveBeenCalledWith(
+      'this VM is already connected to the network connector staging-vpc'
+    )
   })
 
   it('fails the step naming the permission when GitHub gives no token, and asks the agent nothing', async () => {

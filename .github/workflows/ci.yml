@@ -14,7 +14,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-node@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm
@@ -24,4 +26,4 @@ jobs:
       - run: npm test
       - run: npm run build
       - name: The committed bundle is a fresh build
-        run: git diff --exit-code -- dist
+        run: test -z "$(git status --porcelain --untracked-files=all -- dist)"
