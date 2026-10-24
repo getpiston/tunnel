@@ -47,10 +47,10 @@ what its routing rules grant, by name or by address.
 
 ## Where it works
 
-The step runs on the runner itself, so a job with `container:` needs nothing
-in its image for it. The tunnel works the same in the container, in
-`docker run` steps and in service containers. TCP and UDP work through the
-tunnel; `ping` does not.
+A job with `container:` needs nothing in its image for the step. The tunnel
+works the same in the container, in `docker run` steps and in service
+containers. TCP and UDP work through the tunnel; `ping` does not. A job holds
+one tunnel: a second step naming another connector fails.
 
 ## Help
 

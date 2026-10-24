@@ -17,7 +17,7 @@ interface Status {
 /** The agent's refusal, in the same shape as every error of Piston's. */
 interface Refusal {
   error: string
-  message: string
+  message?: string
 }
 
 /** What the step needs from its surroundings, so a test can stand in for each. */
@@ -55,7 +55,6 @@ export async function run(surroundings: Surroundings): Promise<void> {
     )
     return
   }
-  core.setSecret(token)
 
   // The token travels in the body and nowhere else; the agent's own timeout ends the wait, five seconds more are its answer's.
   let response: Response
@@ -76,7 +75,7 @@ export async function run(surroundings: Surroundings): Promise<void> {
   }
   if (!response.ok) {
     const refusal = (await response.json()) as Refusal
-    core.setFailed(refusal.message)
+    core.setFailed(refusal.message ?? refusal.error)
     return
   }
   const answer = (await response.json()) as Status

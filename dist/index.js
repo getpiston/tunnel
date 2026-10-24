@@ -31639,7 +31639,6 @@ async function run(surroundings) {
         setFailed(`this job cannot ask GitHub for an OIDC token; give it permissions: id-token: write. ${describe(failure)}`);
         return;
     }
-    setSecret(token);
     // The token travels in the body and nowhere else; the agent's own timeout ends the wait, five seconds more are its answer's.
     let response;
     try {
@@ -31660,7 +31659,7 @@ async function run(surroundings) {
     }
     if (!response.ok) {
         const refusal = (await response.json());
-        setFailed(refusal.message);
+        setFailed(refusal.message ?? refusal.error);
         return;
     }
     const answer = (await response.json());
@@ -31687,5 +31686,5 @@ function describe(failure) {
 ;// CONCATENATED MODULE: ./build/main.js
 
 
-void run({ agentUrl: AGENT_URL, idToken: (audience) => getIDToken(audience) });
+run({ agentUrl: AGENT_URL, idToken: (audience) => getIDToken(audience) }).catch((failure) => setFailed(failure instanceof Error ? failure.message : String(failure)));
 
