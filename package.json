@@ -1,7 +1,7 @@
 {
   "name": "piston-tunnel-action",
   "private": true,
-  "description": "The getpiston/tunnel action: connects a job on a Piston runner to one of its organization's network connectors",
+  "description": "getpiston/tunnel-action: connects a job on a Piston runner to one of its organization's network connectors",
   "license": "UNLICENSED",
   "type": "module",
   "scripts": {
