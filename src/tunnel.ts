@@ -45,6 +45,13 @@ export async function run(surroundings: Surroundings): Promise<void> {
     )
     return
   }
+  // The token is minted for a Piston api and nothing else, whatever answers at the agent's address.
+  if (!/^https:\/\/[a-z0-9.-]+\.piston\.sh$/.test(status.audience)) {
+    core.setFailed(
+      `the Piston agent named an audience that is not Piston's, ${status.audience}; is this job on a Piston runner?`
+    )
+    return
+  }
 
   let token: string
   try {

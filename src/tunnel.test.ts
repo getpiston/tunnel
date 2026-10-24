@@ -14,13 +14,14 @@ vi.mock('@actions/core', async (importOriginal) => ({
 
 /** A stand-in agent: answers the read with the audience, and the ask with whatever the test scripted. */
 function agent(
-  ask: { status: number; body: unknown } | 'hang'
+  ask: { status: number; body: unknown } | 'hang',
+  audience = 'https://api.runners.eu.test.piston.sh'
 ): Promise<{ url: string; asks: unknown[]; close: () => void }> {
   const asks: unknown[] = []
   const server = http.createServer((request, response) => {
     if (request.method === 'GET') {
       response.setHeader('content-type', 'application/json')
-      response.end(JSON.stringify({ state: 'none', audience: 'https://api.example.test' }))
+      response.end(JSON.stringify({ state: 'none', audience }))
       return
     }
     let body = ''
@@ -72,16 +73,16 @@ describe('the step', () => {
         state: 'connected',
         connector_name: 'prod-vpc',
         matched_rules: ['routing rule 1 (deploys)', 'routing rule 3'],
-        audience: 'https://api.example.test',
+        audience: 'https://api.runners.eu.test.piston.sh',
       },
     })
     await run({ agentUrl: stub.url, idToken })
     stub.close()
 
-    expect(idToken).toHaveBeenCalledWith('https://api.example.test')
+    expect(idToken).toHaveBeenCalledWith('https://api.runners.eu.test.piston.sh')
     expect(stub.asks).toEqual([
       {
-        token: 'token-for-https://api.example.test',
+        token: 'token-for-https://api.runners.eu.test.piston.sh',
         timeout_seconds: 30,
         connector_name: 'prod-vpc',
       },
@@ -101,13 +102,13 @@ describe('the step', () => {
     process.env.INPUT_CONNECTOR_NAME = ''
     const stub = await agent({
       status: 200,
-      body: { state: 'connected', audience: 'https://api.example.test' },
+      body: { state: 'connected', audience: 'https://api.runners.eu.test.piston.sh' },
     })
     await run({ agentUrl: stub.url, idToken })
     stub.close()
 
     expect(stub.asks).toEqual([
-      { token: 'token-for-https://api.example.test', timeout_seconds: 30 },
+      { token: 'token-for-https://api.runners.eu.test.piston.sh', timeout_seconds: 30 },
     ])
     expect(info).toHaveBeenCalledWith('Piston tunnel connected')
   })
@@ -119,7 +120,7 @@ describe('the step', () => {
         state: 'failed',
         connector_name: 'prod-vpc',
         reason: 'no connector online for prod-vpc',
-        audience: 'https://api.example.test',
+        audience: 'https://api.runners.eu.test.piston.sh',
       },
     })
     await run({ agentUrl: stub.url, idToken })
@@ -147,7 +148,7 @@ describe('the step', () => {
   it('fails the step naming the permission when GitHub gives no token, and asks the agent nothing', async () => {
     const stub = await agent({
       status: 200,
-      body: { state: 'connected', audience: 'https://api.example.test' },
+      body: { state: 'connected', audience: 'https://api.runners.eu.test.piston.sh' },
     })
     await run({
       agentUrl: stub.url,
@@ -158,6 +159,16 @@ describe('the step', () => {
     stub.close()
 
     expect(failed).toHaveBeenCalledWith(expect.stringContaining('permissions: id-token: write'))
+    expect(stub.asks).toEqual([])
+  })
+
+  it("refuses to mint a token for an audience that is not Piston's, and asks the agent nothing", async () => {
+    const stub = await agent({ status: 200, body: {} }, 'https://sts.amazonaws.com')
+    await run({ agentUrl: stub.url, idToken })
+    stub.close()
+
+    expect(failed).toHaveBeenCalledWith(expect.stringContaining("not Piston's"))
+    expect(idToken).not.toHaveBeenCalled()
     expect(stub.asks).toEqual([])
   })
 
