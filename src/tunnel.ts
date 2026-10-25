@@ -6,7 +6,7 @@ export const AGENT_URL = 'http://172.17.0.1:7843/tunnel'
 
 /** The agent's answer to the ask: the tunnel's state. */
 interface Status {
-  state: 'none' | 'connecting' | 'connected' | 'failed'
+  state: 'connecting' | 'connected' | 'failed'
   reason?: string
   /** The routing rules that admitted the job, as the console names them. */
   matched_rules?: string[]
