@@ -24,8 +24,7 @@ inputs:
 outputs:
   matched_rules:
     description: >
-      The routing rules that admitted the job, comma separated, each as the
-      console numbers it, with its name when it has one.
+      The names of the routing rules that admitted the job, comma separated.
 runs:
   using: node24
   main: dist/index.js

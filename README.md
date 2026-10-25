@@ -35,15 +35,26 @@ jobs:
 
 | Output | Is |
 |---|---|
-| `matched_rules` | the routing rules that admitted the job, comma separated, each as the console numbers it with its name when it has one |
+| `matched_rules` | the names of the routing rules that admitted the job, comma separated |
 
 The job needs `permissions: id-token: write`; without it the step fails at
-once and says so. The step ends when the tunnel is up, with one line in the
-log, `Piston tunnel to prod-vpc connected, admitted by routing rule 1
-(deploys)`, and fails with the reason when it is not: the job is admitted by
-no routing rule, no instance of the connector is online, or the connector
-could not be reached in time. From then on, until the job ends, it reaches
-what its routing rules grant, by name or by address.
+once and says so. The step ends when the tunnel is up, logging each routing
+rule that admitted the job and what it lets the job reach:
+
+```
+Piston tunnel to prod-vpc connected
+deploys
+  Networks: 10.20.0.0/16
+  Route by hostname: *.prod.internal, postgres.db.svc.cluster.local
+  DNS domains: corp.example.com
+metrics
+  Route by hostname: prometheus.monitoring.svc.cluster.local
+```
+
+It fails with the reason when the tunnel is not up: the job is admitted by no
+routing rule, no instance of the connector is online, or the connector could
+not be reached in time. From then on, until the job ends, the job reaches what
+its routing rules grant, by name or by address.
 
 ## Where it works
 
