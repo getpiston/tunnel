@@ -31635,7 +31635,7 @@ async function run(surroundings) {
         setFailed(`this job cannot ask GitHub for an OIDC token; give it permissions: id-token: write. ${describe(failure)}`);
         return;
     }
-    // The token travels in the body and nowhere else; the agent's own timeout ends the wait, five seconds more are its answer's.
+    // The token travels in the body and nowhere else; the agent's own timeout ends the wait, ten seconds more are its answer's.
     let response;
     try {
         response = await fetch(surroundings.agentUrl, {

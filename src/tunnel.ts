@@ -50,7 +50,7 @@ export async function run(surroundings: Surroundings): Promise<void> {
     return
   }
 
-  // The token travels in the body and nowhere else; the agent's own timeout ends the wait, five seconds more are its answer's.
+  // The token travels in the body and nowhere else; the agent's own timeout ends the wait, ten seconds more are its answer's.
   let response: Response
   try {
     response = await fetch(surroundings.agentUrl, {
