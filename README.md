@@ -31,6 +31,7 @@ jobs:
 |---|---|---|
 | `connector_name` | required | the network connector's name, as the console shows it |
 | `timeout` | `30` | how many seconds the tunnel may take to come up, at most 290 |
+| `audience` | `https://api.runners.eu.prod.piston.sh` | the Piston api the job's token is for; set it only on a Piston other than production |
 
 | Output | Is |
 |---|---|

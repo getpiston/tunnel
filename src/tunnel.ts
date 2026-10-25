@@ -4,13 +4,12 @@ import * as core from '@actions/core'
 /** The agent on every Piston runner, reached from the job and from its containers alike. */
 export const AGENT_URL = 'http://172.17.0.1:7843/tunnel'
 
-/** The agent's answer to a read and to an ask: the tunnel's state and the audience the token is for. */
+/** The agent's answer to the ask: the tunnel's state. */
 interface Status {
   state: 'none' | 'connecting' | 'connected' | 'failed'
   reason?: string
   /** The routing rules that admitted the job, as the console names them. */
   matched_rules?: string[]
-  audience: string
 }
 
 /** The agent's refusal, in the same shape as every error of Piston's. */
@@ -41,26 +40,9 @@ export async function run(surroundings: Surroundings): Promise<void> {
     return
   }
 
-  let status: Status
-  try {
-    status = await read(surroundings.agentUrl)
-  } catch (failure) {
-    core.setFailed(
-      `the Piston agent did not answer, is this job on a Piston runner? ${describe(failure)}`
-    )
-    return
-  }
-  // The token is minted for a Piston api and nothing else, whatever answers at the agent's address.
-  if (!/^https:\/\/[a-z0-9.-]+\.piston\.sh$/.test(status.audience)) {
-    core.setFailed(
-      `the Piston agent named an audience that is not Piston's, ${status.audience}; is this job on a Piston runner?`
-    )
-    return
-  }
-
   let token: string
   try {
-    token = await surroundings.idToken(status.audience)
+    token = await surroundings.idToken(core.getInput('audience'))
   } catch (failure) {
     core.setFailed(
       `this job cannot ask GitHub for an OIDC token; give it permissions: id-token: write. ${describe(failure)}`
@@ -81,8 +63,10 @@ export async function run(surroundings: Surroundings): Promise<void> {
       }),
       signal: AbortSignal.timeout((timeoutSeconds + 10) * 1000),
     })
-  } catch (failure) {
-    core.setFailed(`the Piston agent did not answer the ask. ${describe(failure)}`)
+  } catch {
+    core.setFailed(
+      `no Piston agent answered at ${new URL(surroundings.agentUrl).origin}; is this job on a Piston runner?`
+    )
     return
   }
   if (!response.ok) {
@@ -102,14 +86,6 @@ export async function run(surroundings: Surroundings): Promise<void> {
     return
   }
   core.setFailed(answer.reason ?? `the tunnel is ${answer.state}`)
-}
-
-async function read(agentUrl: string): Promise<Status> {
-  const response = await fetch(agentUrl, { signal: AbortSignal.timeout(5000) })
-  if (!response.ok) {
-    throw new Error(`HTTP ${response.status}`)
-  }
-  return (await response.json()) as Status
 }
 
 function describe(failure: unknown): string {

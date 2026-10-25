@@ -15,6 +15,12 @@ inputs:
     description: How many seconds the tunnel may take to come up, at most 290.
     required: false
     default: "30"
+  audience:
+    description: >
+      The Piston api the job's token is for; set it only on a Piston other
+      than production.
+    required: false
+    default: https://api.runners.eu.prod.piston.sh
 outputs:
   matched_rules:
     description: >

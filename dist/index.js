@@ -31627,22 +31627,9 @@ async function run(surroundings) {
         setFailed(`timeout is a whole number of seconds from 1 to 290, not '${timeoutInput}'`);
         return;
     }
-    let status;
-    try {
-        status = await read(surroundings.agentUrl);
-    }
-    catch (failure) {
-        setFailed(`the Piston agent did not answer, is this job on a Piston runner? ${describe(failure)}`);
-        return;
-    }
-    // The token is minted for a Piston api and nothing else, whatever answers at the agent's address.
-    if (!/^https:\/\/[a-z0-9.-]+\.piston\.sh$/.test(status.audience)) {
-        setFailed(`the Piston agent named an audience that is not Piston's, ${status.audience}; is this job on a Piston runner?`);
-        return;
-    }
     let token;
     try {
-        token = await surroundings.idToken(status.audience);
+        token = await surroundings.idToken(getInput('audience'));
     }
     catch (failure) {
         setFailed(`this job cannot ask GitHub for an OIDC token; give it permissions: id-token: write. ${describe(failure)}`);
@@ -31662,8 +31649,8 @@ async function run(surroundings) {
             signal: AbortSignal.timeout((timeoutSeconds + 10) * 1000),
         });
     }
-    catch (failure) {
-        setFailed(`the Piston agent did not answer the ask. ${describe(failure)}`);
+    catch {
+        setFailed(`no Piston agent answered at ${new URL(surroundings.agentUrl).origin}; is this job on a Piston runner?`);
         return;
     }
     if (!response.ok) {
@@ -31679,13 +31666,6 @@ async function run(surroundings) {
         return;
     }
     setFailed(answer.reason ?? `the tunnel is ${answer.state}`);
-}
-async function read(agentUrl) {
-    const response = await fetch(agentUrl, { signal: AbortSignal.timeout(5000) });
-    if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-    }
-    return (await response.json());
 }
 function describe(failure) {
     return failure instanceof Error ? `(${failure.message})` : '';
