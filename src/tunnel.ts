@@ -63,9 +63,15 @@ export async function run(surroundings: Surroundings): Promise<void> {
       }),
       signal: AbortSignal.timeout((timeoutSeconds + 10) * 1000),
     })
-  } catch {
+  } catch (failure) {
+    // fetch puts the socket's error in `cause`; the abort at the wait's end is its own error.
+    const cause =
+      failure instanceof Error && failure.cause instanceof Error ? failure.cause : failure
+    const origin = new URL(surroundings.agentUrl).origin
     core.setFailed(
-      `no Piston agent answered at ${new URL(surroundings.agentUrl).origin}; is this job on a Piston runner?`
+      (cause as NodeJS.ErrnoException).code === 'ECONNREFUSED'
+        ? `no Piston agent answered at ${origin}; is this job on a Piston runner?`
+        : `the Piston agent at ${origin} did not answer ${describe(cause)}`
     )
     return
   }

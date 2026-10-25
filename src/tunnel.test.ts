@@ -146,10 +146,26 @@ describe('the step', () => {
   })
 
   it('fails the step when no agent answers, as off a Piston runner', async () => {
-    await run({ agentUrl: 'http://127.0.0.1:9/tunnel', idToken })
+    const server = http.createServer()
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
+    const { port } = server.address() as AddressInfo
+    await new Promise((resolve) => server.close(resolve))
+    await run({ agentUrl: `http://127.0.0.1:${port}/tunnel`, idToken })
 
     expect(failed).toHaveBeenCalledWith(
-      'no Piston agent answered at http://127.0.0.1:9; is this job on a Piston runner?'
+      `no Piston agent answered at http://127.0.0.1:${port}; is this job on a Piston runner?`
+    )
+  })
+
+  it('fails the step with the cause when the agent drops the ask, as one that crashed mid-wait', async () => {
+    const server = http.createServer((request) => request.socket.destroy())
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
+    const { port } = server.address() as AddressInfo
+    await run({ agentUrl: `http://127.0.0.1:${port}/tunnel`, idToken })
+    server.close()
+
+    expect(failed).toHaveBeenCalledWith(
+      `the Piston agent at http://127.0.0.1:${port} did not answer (other side closed)`
     )
   })
 
