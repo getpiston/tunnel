@@ -4,13 +4,15 @@ import * as core from '@actions/core'
 /** The agent on every Piston runner, reached from the job and from its containers alike. */
 export const AGENT_URL = 'http://172.17.0.1:7843/tunnel'
 
-/** The agent's answer to a read and to an ask: the tunnel's state and the audience the token is for. */
-interface Status {
-  state: 'none' | 'connecting' | 'connected' | 'failed'
-  reason?: string
-  /** The routing rules that admitted the job, as the console names them. */
-  matched_rules?: string[]
-  audience: string
+/** The agent's answer to the ask: the tunnel's state. */
+type Status =
+  | { state: 'connected'; matched_rules: MatchedRule[] }
+  | { state: 'connecting' | 'failed'; reason?: string }
+
+/** A routing rule that admitted the job, and what it lets the job reach. */
+interface MatchedRule {
+  name: string
+  reach: { routes: string[]; hosts: string[]; dns_domains: string[] }
 }
 
 /** The agent's refusal, in the same shape as every error of Piston's. */
@@ -41,26 +43,9 @@ export async function run(surroundings: Surroundings): Promise<void> {
     return
   }
 
-  let status: Status
-  try {
-    status = await read(surroundings.agentUrl)
-  } catch (failure) {
-    core.setFailed(
-      `the Piston agent did not answer, is this job on a Piston runner? ${describe(failure)}`
-    )
-    return
-  }
-  // The token is minted for a Piston api and nothing else, whatever answers at the agent's address.
-  if (!/^https:\/\/[a-z0-9.-]+\.piston\.sh$/.test(status.audience)) {
-    core.setFailed(
-      `the Piston agent named an audience that is not Piston's, ${status.audience}; is this job on a Piston runner?`
-    )
-    return
-  }
-
   let token: string
   try {
-    token = await surroundings.idToken(status.audience)
+    token = await surroundings.idToken(core.getInput('audience'))
   } catch (failure) {
     core.setFailed(
       `this job cannot ask GitHub for an OIDC token; give it permissions: id-token: write. ${describe(failure)}`
@@ -68,7 +53,7 @@ export async function run(surroundings: Surroundings): Promise<void> {
     return
   }
 
-  // The token travels in the body and nowhere else; the agent's own timeout ends the wait, five seconds more are its answer's.
+  // The token travels in the body and nowhere else; the agent's own timeout ends the wait, ten seconds more are its answer's.
   let response: Response
   try {
     response = await fetch(surroundings.agentUrl, {
@@ -82,7 +67,15 @@ export async function run(surroundings: Surroundings): Promise<void> {
       signal: AbortSignal.timeout((timeoutSeconds + 10) * 1000),
     })
   } catch (failure) {
-    core.setFailed(`the Piston agent did not answer the ask. ${describe(failure)}`)
+    // fetch puts the socket's error in `cause`; the abort at the wait's end is its own error.
+    const cause =
+      failure instanceof Error && failure.cause instanceof Error ? failure.cause : failure
+    const origin = new URL(surroundings.agentUrl).origin
+    core.setFailed(
+      (cause as NodeJS.ErrnoException).code === 'ECONNREFUSED'
+        ? `no Piston agent answered at ${origin}; is this job on a Piston runner?`
+        : `the Piston agent at ${origin} did not answer ${describe(cause)}`
+    )
     return
   }
   if (!response.ok) {
@@ -92,24 +85,18 @@ export async function run(surroundings: Surroundings): Promise<void> {
   }
   const answer = (await response.json()) as Status
   if (answer.state === 'connected') {
-    const rules = answer.matched_rules ?? []
-    core.setOutput('matched_rules', rules.join(', '))
-    core.info(
-      `Piston tunnel to ${connectorName} connected${
-        rules.length ? `, admitted by ${rules.join(', ')}` : ''
-      }`
-    )
+    core.setOutput('matched_rules', answer.matched_rules.map((rule) => rule.name).join(', '))
+    const lines = [`Piston tunnel to ${connectorName} connected`]
+    for (const { name, reach } of answer.matched_rules) {
+      lines.push(name)
+      if (reach.routes.length) lines.push(`  Networks: ${reach.routes.join(', ')}`)
+      if (reach.hosts.length) lines.push(`  Route by hostname: ${reach.hosts.join(', ')}`)
+      if (reach.dns_domains.length) lines.push(`  DNS domains: ${reach.dns_domains.join(', ')}`)
+    }
+    core.info(lines.join('\n'))
     return
   }
   core.setFailed(answer.reason ?? `the tunnel is ${answer.state}`)
-}
-
-async function read(agentUrl: string): Promise<Status> {
-  const response = await fetch(agentUrl, { signal: AbortSignal.timeout(5000) })
-  if (!response.ok) {
-    throw new Error(`HTTP ${response.status}`)
-  }
-  return (await response.json()) as Status
 }
 
 function describe(failure: unknown): string {

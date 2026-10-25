@@ -31627,28 +31627,15 @@ async function run(surroundings) {
         setFailed(`timeout is a whole number of seconds from 1 to 290, not '${timeoutInput}'`);
         return;
     }
-    let status;
-    try {
-        status = await read(surroundings.agentUrl);
-    }
-    catch (failure) {
-        setFailed(`the Piston agent did not answer, is this job on a Piston runner? ${describe(failure)}`);
-        return;
-    }
-    // The token is minted for a Piston api and nothing else, whatever answers at the agent's address.
-    if (!/^https:\/\/[a-z0-9.-]+\.piston\.sh$/.test(status.audience)) {
-        setFailed(`the Piston agent named an audience that is not Piston's, ${status.audience}; is this job on a Piston runner?`);
-        return;
-    }
     let token;
     try {
-        token = await surroundings.idToken(status.audience);
+        token = await surroundings.idToken(getInput('audience'));
     }
     catch (failure) {
         setFailed(`this job cannot ask GitHub for an OIDC token; give it permissions: id-token: write. ${describe(failure)}`);
         return;
     }
-    // The token travels in the body and nowhere else; the agent's own timeout ends the wait, five seconds more are its answer's.
+    // The token travels in the body and nowhere else; the agent's own timeout ends the wait, ten seconds more are its answer's.
     let response;
     try {
         response = await fetch(surroundings.agentUrl, {
@@ -31663,7 +31650,12 @@ async function run(surroundings) {
         });
     }
     catch (failure) {
-        setFailed(`the Piston agent did not answer the ask. ${describe(failure)}`);
+        // fetch puts the socket's error in `cause`; the abort at the wait's end is its own error.
+        const cause = failure instanceof Error && failure.cause instanceof Error ? failure.cause : failure;
+        const origin = new URL(surroundings.agentUrl).origin;
+        setFailed(cause.code === 'ECONNREFUSED'
+            ? `no Piston agent answered at ${origin}; is this job on a Piston runner?`
+            : `the Piston agent at ${origin} did not answer ${describe(cause)}`);
         return;
     }
     if (!response.ok) {
@@ -31673,19 +31665,21 @@ async function run(surroundings) {
     }
     const answer = (await response.json());
     if (answer.state === 'connected') {
-        const rules = answer.matched_rules ?? [];
-        setOutput('matched_rules', rules.join(', '));
-        info(`Piston tunnel to ${connectorName} connected${rules.length ? `, admitted by ${rules.join(', ')}` : ''}`);
+        setOutput('matched_rules', answer.matched_rules.map((rule) => rule.name).join(', '));
+        const lines = [`Piston tunnel to ${connectorName} connected`];
+        for (const { name, reach } of answer.matched_rules) {
+            lines.push(name);
+            if (reach.routes.length)
+                lines.push(`  Networks: ${reach.routes.join(', ')}`);
+            if (reach.hosts.length)
+                lines.push(`  Route by hostname: ${reach.hosts.join(', ')}`);
+            if (reach.dns_domains.length)
+                lines.push(`  DNS domains: ${reach.dns_domains.join(', ')}`);
+        }
+        info(lines.join('\n'));
         return;
     }
     setFailed(answer.reason ?? `the tunnel is ${answer.state}`);
-}
-async function read(agentUrl) {
-    const response = await fetch(agentUrl, { signal: AbortSignal.timeout(5000) });
-    if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-    }
-    return (await response.json());
 }
 function describe(failure) {
     return failure instanceof Error ? `(${failure.message})` : '';
