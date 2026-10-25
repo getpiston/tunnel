@@ -66,7 +66,24 @@ describe('the step', () => {
       body: {
         state: 'connected',
         connector_name: 'prod-vpc',
-        matched_rules: ['routing rule 1 (deploys)', 'routing rule 3'],
+        matched_rules: [
+          {
+            name: 'deploys',
+            reach: {
+              routes: ['10.20.0.0/16'],
+              hosts: ['*.prod.internal', 'postgres.db.svc.cluster.local'],
+              dns_domains: ['corp.example.com'],
+            },
+          },
+          {
+            name: 'metrics',
+            reach: {
+              routes: [],
+              hosts: ['prometheus.monitoring.svc.cluster.local'],
+              dns_domains: [],
+            },
+          },
+        ],
       },
     })
     await run({ agentUrl: stub.url, idToken })
@@ -80,12 +97,17 @@ describe('the step', () => {
         connector_name: 'prod-vpc',
       },
     ])
-    expect(core.setOutput).toHaveBeenCalledWith(
-      'matched_rules',
-      'routing rule 1 (deploys), routing rule 3'
-    )
+    expect(core.setOutput).toHaveBeenCalledWith('matched_rules', 'deploys, metrics')
     expect(info).toHaveBeenCalledWith(
-      'Piston tunnel to prod-vpc connected, admitted by routing rule 1 (deploys), routing rule 3'
+      [
+        'Piston tunnel to prod-vpc connected',
+        'deploys',
+        '  Networks: 10.20.0.0/16',
+        '  Route by hostname: *.prod.internal, postgres.db.svc.cluster.local',
+        '  DNS domains: corp.example.com',
+        'metrics',
+        '  Route by hostname: prometheus.monitoring.svc.cluster.local',
+      ].join('\n')
     )
     expect(failed).not.toHaveBeenCalled()
   })

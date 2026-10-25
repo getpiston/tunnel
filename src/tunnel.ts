@@ -5,11 +5,14 @@ import * as core from '@actions/core'
 export const AGENT_URL = 'http://172.17.0.1:7843/tunnel'
 
 /** The agent's answer to the ask: the tunnel's state. */
-interface Status {
-  state: 'connecting' | 'connected' | 'failed'
-  reason?: string
-  /** The routing rules that admitted the job, as the console names them. */
-  matched_rules?: string[]
+type Status =
+  | { state: 'connected'; matched_rules: MatchedRule[] }
+  | { state: 'connecting' | 'failed'; reason?: string }
+
+/** A routing rule that admitted the job, and what it lets the job reach. */
+interface MatchedRule {
+  name: string
+  reach: { routes: string[]; hosts: string[]; dns_domains: string[] }
 }
 
 /** The agent's refusal, in the same shape as every error of Piston's. */
@@ -82,13 +85,15 @@ export async function run(surroundings: Surroundings): Promise<void> {
   }
   const answer = (await response.json()) as Status
   if (answer.state === 'connected') {
-    const rules = answer.matched_rules ?? []
-    core.setOutput('matched_rules', rules.join(', '))
-    core.info(
-      `Piston tunnel to ${connectorName} connected${
-        rules.length ? `, admitted by ${rules.join(', ')}` : ''
-      }`
-    )
+    core.setOutput('matched_rules', answer.matched_rules.map((rule) => rule.name).join(', '))
+    const lines = [`Piston tunnel to ${connectorName} connected`]
+    for (const { name, reach } of answer.matched_rules) {
+      lines.push(name)
+      if (reach.routes.length) lines.push(`  Networks: ${reach.routes.join(', ')}`)
+      if (reach.hosts.length) lines.push(`  Route by hostname: ${reach.hosts.join(', ')}`)
+      if (reach.dns_domains.length) lines.push(`  DNS domains: ${reach.dns_domains.join(', ')}`)
+    }
+    core.info(lines.join('\n'))
     return
   }
   core.setFailed(answer.reason ?? `the tunnel is ${answer.state}`)

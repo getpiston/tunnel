@@ -31665,9 +31665,18 @@ async function run(surroundings) {
     }
     const answer = (await response.json());
     if (answer.state === 'connected') {
-        const rules = answer.matched_rules ?? [];
-        setOutput('matched_rules', rules.join(', '));
-        info(`Piston tunnel to ${connectorName} connected${rules.length ? `, admitted by ${rules.join(', ')}` : ''}`);
+        setOutput('matched_rules', answer.matched_rules.map((rule) => rule.name).join(', '));
+        const lines = [`Piston tunnel to ${connectorName} connected`];
+        for (const { name, reach } of answer.matched_rules) {
+            lines.push(name);
+            if (reach.routes.length)
+                lines.push(`  Networks: ${reach.routes.join(', ')}`);
+            if (reach.hosts.length)
+                lines.push(`  Route by hostname: ${reach.hosts.join(', ')}`);
+            if (reach.dns_domains.length)
+                lines.push(`  DNS domains: ${reach.dns_domains.join(', ')}`);
+        }
+        info(lines.join('\n'));
         return;
     }
     setFailed(answer.reason ?? `the tunnel is ${answer.state}`);
