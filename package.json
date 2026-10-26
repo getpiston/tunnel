@@ -2,7 +2,7 @@
   "name": "piston-tunnel-action",
   "private": true,
   "description": "getpiston/tunnel-action: connects a job on a Piston runner to one of its organization's network connectors",
-  "license": "UNLICENSED",
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "lint": "biome check .",
