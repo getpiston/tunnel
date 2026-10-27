@@ -44,11 +44,10 @@ rule that admitted the job and what it lets the job reach:
 ```
 Piston tunnel to prod-vpc connected
 deploys
-  Networks: 10.20.0.0/16
-  Route by hostname: *.prod.internal, postgres.db.svc.cluster.local
-  DNS domains: corp.example.com
+  Network CIDRs: 10.20.0.0/16
+  Hostname matchers: *.prod.internal, postgres.db.svc.cluster.local
 metrics
-  Route by hostname: prometheus.monitoring.svc.cluster.local
+  Hostname matchers: prometheus.monitoring.svc.cluster.local
 ```
 
 When the tunnel does not come up, the step fails with the reason; see
@@ -73,11 +72,12 @@ the job reaches what its routing rules grant, by name or by address.
 - **Containers.** A job with `container:` needs nothing in its image for the
   step. The tunnel works the same in the container, in `docker run` steps
   and in service containers.
-- **Names.** A name a rule grants under **Route by hostname** resolves to an
+- **Names.** A name a rule's **Hostname matchers** match resolves to an
   address from the connector's tunnel addresses, `100.127.0.0/16` unless they
   were changed, and not to the host's own address: reach it by its name. A
-  name under **DNS domains** resolves to its real address, which the job
-  reaches only inside a rule's **Networks**.
+  name under a domain of the connector's nameservers, its **Configure
+  Nameservers** settings, resolves to its real address, for every job of the
+  connector, and the job reaches it only inside a rule's **Network CIDRs**.
 - **What takes the tunnel.** IPv4 TCP and UDP to the granted networks and
   names. `ping` and IPv6 do not, and neither do the runner's own addresses,
   Docker's `172.17.0.0/16` among them, whatever the rules hold.

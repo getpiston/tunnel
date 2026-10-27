@@ -69,18 +69,16 @@ describe('the step', () => {
         matched_rules: [
           {
             name: 'deploys',
-            reach: {
-              routes: ['10.20.0.0/16'],
-              hosts: ['*.prod.internal', 'postgres.db.svc.cluster.local'],
-              dns_domains: ['corp.example.com'],
+            authorized_resources: {
+              network_cidrs: ['10.20.0.0/16'],
+              hostname_matchers: ['*.prod.internal', 'postgres.db.svc.cluster.local'],
             },
           },
           {
             name: 'metrics',
-            reach: {
-              routes: [],
-              hosts: ['prometheus.monitoring.svc.cluster.local'],
-              dns_domains: [],
+            authorized_resources: {
+              network_cidrs: [],
+              hostname_matchers: ['prometheus.monitoring.svc.cluster.local'],
             },
           },
         ],
@@ -102,11 +100,10 @@ describe('the step', () => {
       [
         'Piston tunnel to prod-vpc connected',
         'deploys',
-        '  Networks: 10.20.0.0/16',
-        '  Route by hostname: *.prod.internal, postgres.db.svc.cluster.local',
-        '  DNS domains: corp.example.com',
+        '  Network CIDRs: 10.20.0.0/16',
+        '  Hostname matchers: *.prod.internal, postgres.db.svc.cluster.local',
         'metrics',
-        '  Route by hostname: prometheus.monitoring.svc.cluster.local',
+        '  Hostname matchers: prometheus.monitoring.svc.cluster.local',
       ].join('\n')
     )
     expect(failed).not.toHaveBeenCalled()

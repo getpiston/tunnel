@@ -31667,14 +31667,14 @@ async function run(surroundings) {
     if (answer.state === 'connected') {
         setOutput('matched_rules', answer.matched_rules.map((rule) => rule.name).join(', '));
         const lines = [`Piston tunnel to ${connectorName} connected`];
-        for (const { name, reach } of answer.matched_rules) {
+        for (const { name, authorized_resources: resources } of answer.matched_rules) {
             lines.push(name);
-            if (reach.routes.length)
-                lines.push(`  Networks: ${reach.routes.join(', ')}`);
-            if (reach.hosts.length)
-                lines.push(`  Route by hostname: ${reach.hosts.join(', ')}`);
-            if (reach.dns_domains.length)
-                lines.push(`  DNS domains: ${reach.dns_domains.join(', ')}`);
+            if (resources.network_cidrs.length) {
+                lines.push(`  Network CIDRs: ${resources.network_cidrs.join(', ')}`);
+            }
+            if (resources.hostname_matchers.length) {
+                lines.push(`  Hostname matchers: ${resources.hostname_matchers.join(', ')}`);
+            }
         }
         info(lines.join('\n'));
         return;
