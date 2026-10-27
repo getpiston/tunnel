@@ -12,7 +12,7 @@ type Status =
 /** A routing rule that admitted the job, and what it lets the job reach. */
 interface MatchedRule {
   name: string
-  reach: { routes: string[]; hosts: string[]; dns_domains: string[] }
+  authorized_resources: { network_cidrs: string[]; hostname_matchers: string[] }
 }
 
 /** The agent's refusal, in the same shape as every error of Piston's. */
@@ -87,11 +87,14 @@ export async function run(surroundings: Surroundings): Promise<void> {
   if (answer.state === 'connected') {
     core.setOutput('matched_rules', answer.matched_rules.map((rule) => rule.name).join(', '))
     const lines = [`Piston tunnel to ${connectorName} connected`]
-    for (const { name, reach } of answer.matched_rules) {
+    for (const { name, authorized_resources: resources } of answer.matched_rules) {
       lines.push(name)
-      if (reach.routes.length) lines.push(`  Networks: ${reach.routes.join(', ')}`)
-      if (reach.hosts.length) lines.push(`  Route by hostname: ${reach.hosts.join(', ')}`)
-      if (reach.dns_domains.length) lines.push(`  DNS domains: ${reach.dns_domains.join(', ')}`)
+      if (resources.network_cidrs.length) {
+        lines.push(`  Network CIDRs: ${resources.network_cidrs.join(', ')}`)
+      }
+      if (resources.hostname_matchers.length) {
+        lines.push(`  Hostname matchers: ${resources.hostname_matchers.join(', ')}`)
+      }
     }
     core.info(lines.join('\n'))
     return
