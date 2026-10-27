@@ -21,7 +21,7 @@ jobs:
       id-token: write
       contents: read
     steps:
-      - uses: getpiston/tunnel-action@v1
+      - uses: getpiston/tunnel-action@v2
         with:
           connector_name: prod-vpc
       - run: psql "postgres://app@postgres.db.svc.cluster.local/app" -c 'select 1'
