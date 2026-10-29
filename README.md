@@ -119,7 +119,9 @@ internet traffic of jobs already using it.
 
 - **Containers.** A job with `container:` needs nothing in its image for the
   step. The tunnel works the same in the container, in `docker run` steps
-  and in service containers.
+  and in service containers. In such a job the step runs inside the
+  container, where it cannot reset the machine's connections: it warns and
+  goes on.
 - **Names.** A name a rule's **Hostname matchers** match resolves to an
   address from the connector's tunnel addresses, `100.127.0.0/16` unless they
   were changed, and not to the host's own address: reach it by its name. A
