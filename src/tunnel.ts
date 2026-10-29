@@ -6,7 +6,7 @@ export const AGENT_URL = 'http://172.17.0.1:7843/tunnel'
 
 /** The agent's answer to the ask: the tunnel's state. */
 type Status =
-  | { state: 'connected'; matched_rules: MatchedRule[] }
+  | { state: 'connected'; matched_rules: MatchedRule[]; connector_source_ip?: string }
   | { state: 'connecting' | 'failed'; reason?: string }
 
 /** A routing rule that admitted the job, and what it lets the job reach. */
@@ -42,6 +42,7 @@ export async function run(surroundings: Surroundings): Promise<void> {
     core.setFailed(`timeout is a whole number of seconds from 1 to 290, not '${timeoutInput}'`)
     return
   }
+  const exitNode = core.getBooleanInput('exit_node')
 
   let token: string
   try {
@@ -63,6 +64,7 @@ export async function run(surroundings: Surroundings): Promise<void> {
         token,
         timeout_seconds: timeoutSeconds,
         connector_name: connectorName,
+        exit_node: exitNode,
       }),
       signal: AbortSignal.timeout((timeoutSeconds + 10) * 1000),
     })
@@ -87,6 +89,13 @@ export async function run(surroundings: Surroundings): Promise<void> {
   if (answer.state === 'connected') {
     core.setOutput('matched_rules', answer.matched_rules.map((rule) => rule.name).join(', '))
     const lines = [`Piston tunnel to ${connectorName} connected`]
+    if (exitNode) {
+      lines.push(
+        answer.connector_source_ip
+          ? `This job's public IP is now ${answer.connector_source_ip} (exit node ${connectorName})`
+          : `This job's internet traffic now leaves through ${connectorName}`
+      )
+    }
     for (const { name, authorized_resources: resources } of answer.matched_rules) {
       lines.push(name)
       if (resources.network_cidrs.length) {

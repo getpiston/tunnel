@@ -31627,6 +31627,7 @@ async function run(surroundings) {
         setFailed(`timeout is a whole number of seconds from 1 to 290, not '${timeoutInput}'`);
         return;
     }
+    const exitNode = getBooleanInput('exit_node');
     let token;
     try {
         token = await surroundings.idToken(getInput('audience'));
@@ -31645,6 +31646,7 @@ async function run(surroundings) {
                 token,
                 timeout_seconds: timeoutSeconds,
                 connector_name: connectorName,
+                exit_node: exitNode,
             }),
             signal: AbortSignal.timeout((timeoutSeconds + 10) * 1000),
         });
@@ -31667,6 +31669,11 @@ async function run(surroundings) {
     if (answer.state === 'connected') {
         setOutput('matched_rules', answer.matched_rules.map((rule) => rule.name).join(', '));
         const lines = [`Piston tunnel to ${connectorName} connected`];
+        if (exitNode) {
+            lines.push(answer.connector_source_ip
+                ? `This job's public IP is now ${answer.connector_source_ip} (exit node ${connectorName})`
+                : `This job's internet traffic now leaves through ${connectorName}`);
+        }
         for (const { name, authorized_resources: resources } of answer.matched_rules) {
             lines.push(name);
             if (resources.network_cidrs.length) {
