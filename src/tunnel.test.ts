@@ -49,7 +49,7 @@ const info = vi.mocked(core.info)
 beforeEach(() => {
   process.env.INPUT_CONNECTOR_NAME = 'prod-vpc'
   process.env.INPUT_TIMEOUT = '30'
-  process.env.INPUT_INTERNET_EXIT = 'false'
+  process.env.INPUT_EXIT_NODE = 'false'
   process.env.INPUT_AUDIENCE = 'https://api.runners.eu.test.piston.sh'
 })
 
@@ -57,7 +57,7 @@ afterEach(() => {
   vi.clearAllMocks()
   delete process.env.INPUT_CONNECTOR_NAME
   delete process.env.INPUT_TIMEOUT
-  delete process.env.INPUT_INTERNET_EXIT
+  delete process.env.INPUT_EXIT_NODE
   delete process.env.INPUT_AUDIENCE
 })
 
@@ -95,7 +95,7 @@ describe('the step', () => {
         token: 'token-for-https://api.runners.eu.test.piston.sh',
         timeout_seconds: 30,
         connector_name: 'prod-vpc',
-        internet_exit: false,
+        exit_node: false,
       },
     ])
     expect(core.setOutput).toHaveBeenCalledWith('matched_rules', 'deploys, metrics')
@@ -116,7 +116,7 @@ describe('the step', () => {
     {
       name: 'with the address its traffic leaves from',
       answer: { connector_source_ip: '198.51.100.23' },
-      line: "This job's public IP is now 198.51.100.23 (internet exit through prod-vpc)",
+      line: "This job's public IP is now 198.51.100.23 (exit node prod-vpc)",
     },
     {
       name: 'without one',
@@ -124,9 +124,9 @@ describe('the step', () => {
       line: "This job's internet traffic now leaves through prod-vpc",
     },
   ])(
-    'asks for the internet exit and prints where the traffic leaves, $name',
+    'asks for the exit node and prints where the traffic leaves, $name',
     async ({ answer, line }) => {
-      process.env.INPUT_INTERNET_EXIT = 'true'
+      process.env.INPUT_EXIT_NODE = 'true'
       const stub = await agent({
         status: 200,
         body: { state: 'connected', connector_name: 'prod-vpc', matched_rules: [], ...answer },
@@ -134,7 +134,7 @@ describe('the step', () => {
       await run({ agentUrl: stub.url, idToken })
       stub.close()
 
-      expect(stub.asks).toEqual([expect.objectContaining({ internet_exit: true })])
+      expect(stub.asks).toEqual([expect.objectContaining({ exit_node: true })])
       expect(info).toHaveBeenCalledWith(['Piston tunnel to prod-vpc connected', line].join('\n'))
       expect(failed).not.toHaveBeenCalled()
     }

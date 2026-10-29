@@ -42,7 +42,7 @@ export async function run(surroundings: Surroundings): Promise<void> {
     core.setFailed(`timeout is a whole number of seconds from 1 to 290, not '${timeoutInput}'`)
     return
   }
-  const internetExit = core.getBooleanInput('internet_exit')
+  const exitNode = core.getBooleanInput('exit_node')
 
   let token: string
   try {
@@ -64,7 +64,7 @@ export async function run(surroundings: Surroundings): Promise<void> {
         token,
         timeout_seconds: timeoutSeconds,
         connector_name: connectorName,
-        internet_exit: internetExit,
+        exit_node: exitNode,
       }),
       signal: AbortSignal.timeout((timeoutSeconds + 10) * 1000),
     })
@@ -89,10 +89,10 @@ export async function run(surroundings: Surroundings): Promise<void> {
   if (answer.state === 'connected') {
     core.setOutput('matched_rules', answer.matched_rules.map((rule) => rule.name).join(', '))
     const lines = [`Piston tunnel to ${connectorName} connected`]
-    if (internetExit) {
+    if (exitNode) {
       lines.push(
         answer.connector_source_ip
-          ? `This job's public IP is now ${answer.connector_source_ip} (internet exit through ${connectorName})`
+          ? `This job's public IP is now ${answer.connector_source_ip} (exit node ${connectorName})`
           : `This job's internet traffic now leaves through ${connectorName}`
       )
     }
