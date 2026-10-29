@@ -113,8 +113,10 @@ internet traffic of jobs already using it.
   address from the connector's tunnel addresses, `100.127.0.0/16` unless they
   were changed, and not to the host's own address: reach it by its name. A
   name under a domain of the connector's **Nameservers**, under **Configure
-  Connector** in its settings, resolves to its real address, for every job of the
-  connector, and the job reaches it only inside a rule's **Network CIDRs**.
+  Connector** in its settings, resolves to its real address for every job a
+  routing rule admits, and the job reaches it only inside a rule's **Network
+  CIDRs**. A job the exit node alone admits resolves every name through public
+  DNS.
 - **What takes the tunnel.** IPv4 TCP and UDP to the granted networks and
   names, and to the internet through an exit node. `ping` and IPv6 do not, and neither do the runner's own addresses,
   Docker's `172.17.0.0/16` among them, whatever the rules hold.
