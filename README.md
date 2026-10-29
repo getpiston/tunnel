@@ -38,6 +38,13 @@ jobs:
 |---|---|
 | `matched_rules` | the names of the routing rules that admitted the job, comma separated |
 
+> [!WARNING]
+> The step resets every TCP connection open on the machine, the runner's own
+> and your job's. Whatever opened one before the step gets an error at once
+> and has to reconnect, so start a process that holds a connection, such as a
+> background service or a long download, after the step. Every run of the
+> step resets them again.
+
 The job needs `permissions: id-token: write`; without it the step fails at
 once and says so. Once the tunnel is up, the step logs each routing rule that
 admitted the job and what it lets the job reach, then resets the machine's
@@ -59,13 +66,6 @@ Routes:
 -------------
 Resetting all running connections!
 ```
-
-> [!WARNING]
-> The step resets every TCP connection open on the machine, the runner's own
-> and your job's. Whatever opened one before the step gets an error at once
-> and has to reconnect, so start a process that holds a connection, such as a
-> background service or a long download, after the step. Every run of the
-> step resets them again.
 
 When the tunnel does not come up, the step fails with the reason; see
 [When the step fails](#when-the-step-fails). From then on, until the job ends,
