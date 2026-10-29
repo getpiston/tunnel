@@ -102,11 +102,18 @@ describe('the step', () => {
     expect(info).toHaveBeenCalledWith(
       [
         'Piston tunnel to prod-vpc connected',
-        'deploys',
+        '',
+        'Matched Connector Rules',
+        '-------------',
+        'Rule name: deploys',
+        'Routes:',
         '  Network CIDRs: 10.20.0.0/16',
         '  Hostname matchers: *.prod.internal, postgres.db.svc.cluster.local',
-        'metrics',
+        '-------------',
+        'Rule name: metrics',
+        'Routes:',
         '  Hostname matchers: prometheus.monitoring.svc.cluster.local',
+        '-------------',
       ].join('\n')
     )
     expect(failed).not.toHaveBeenCalled()
@@ -116,12 +123,12 @@ describe('the step', () => {
     {
       name: 'with the address its traffic leaves from',
       answer: { connector_source_ip: '198.51.100.23' },
-      line: "This job's public IP is now 198.51.100.23 (exit node prod-vpc)",
+      line: 'Job IP (Exit Node Enabled): 198.51.100.23',
     },
     {
       name: 'without one',
       answer: {},
-      line: "This job's internet traffic now leaves through prod-vpc",
+      line: 'Job IP (Exit Node Enabled): not known yet',
     },
   ])(
     'asks for the exit node and prints where the traffic leaves, $name',
@@ -135,7 +142,11 @@ describe('the step', () => {
       stub.close()
 
       expect(stub.asks).toEqual([expect.objectContaining({ exit_node: true })])
-      expect(info).toHaveBeenCalledWith(['Piston tunnel to prod-vpc connected', line].join('\n'))
+      expect(info).toHaveBeenCalledWith(
+        ['Piston tunnel to prod-vpc connected', '', line, '', 'Matched Connector Rules: none'].join(
+          '\n'
+        )
+      )
       expect(failed).not.toHaveBeenCalled()
     }
   )

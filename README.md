@@ -44,11 +44,18 @@ rule that admitted the job and what it lets the job reach:
 
 ```
 Piston tunnel to prod-vpc connected
-deploys
+
+Matched Connector Rules
+-------------
+Rule name: deploys
+Routes:
   Network CIDRs: 10.20.0.0/16
   Hostname matchers: *.prod.internal, postgres.db.svc.cluster.local
-metrics
+-------------
+Rule name: metrics
+Routes:
   Hostname matchers: prometheus.monitoring.svc.cluster.local
+-------------
 ```
 
 When the tunnel does not come up, the step fails with the reason; see
@@ -75,12 +82,19 @@ With `exit_node: true`, every connection the job makes to the internet
 goes out through the connector, so the sites and services it calls see your
 network's public address. The step prints the address the connector reaches
 Piston from, which is that address unless your network sends the connector's
-traffic through a proxy or a NAT with several addresses:
+traffic through a proxy or a NAT with several addresses. A job no routing rule
+matches gets the internet alone:
 
 ```
 Piston tunnel to prod-vpc connected
-This job's public IP is now 203.0.113.7 (exit node prod-vpc)
+
+Job IP (Exit Node Enabled): 203.0.113.7
+
+Matched Connector Rules: none
 ```
+
+The address reads `not known yet` when no instance of the connector was online
+as the step asked and one picked the tunnel up later.
 
 Your private networks stay closed to the job unless a routing rule opens
 them. The connector's **Exit node** switch, under **Configure Connector** on its

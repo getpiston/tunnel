@@ -4,6 +4,9 @@ import * as core from '@actions/core'
 /** The agent on every Piston runner, reached from the job and from its containers alike. */
 export const AGENT_URL = 'http://172.17.0.1:7843/tunnel'
 
+/** The line under the rules' heading and under each rule the step prints. */
+const RULE_SEPARATOR = '-------------'
+
 /** The agent's answer to the ask: the tunnel's state. */
 type Status =
   | { state: 'connected'; matched_rules: MatchedRule[]; connector_source_ip?: string }
@@ -88,22 +91,24 @@ export async function run(surroundings: Surroundings): Promise<void> {
   const answer = (await response.json()) as Status
   if (answer.state === 'connected') {
     core.setOutput('matched_rules', answer.matched_rules.map((rule) => rule.name).join(', '))
-    const lines = [`Piston tunnel to ${connectorName} connected`]
+    const lines = [`Piston tunnel to ${connectorName} connected`, '']
     if (exitNode) {
-      lines.push(
-        answer.connector_source_ip
-          ? `This job's public IP is now ${answer.connector_source_ip} (exit node ${connectorName})`
-          : `This job's internet traffic now leaves through ${connectorName}`
-      )
+      lines.push(`Job IP (Exit Node Enabled): ${answer.connector_source_ip ?? 'not known yet'}`, '')
+    }
+    if (answer.matched_rules.length === 0) {
+      lines.push('Matched Connector Rules: none')
+    } else {
+      lines.push('Matched Connector Rules', RULE_SEPARATOR)
     }
     for (const { name, authorized_resources: resources } of answer.matched_rules) {
-      lines.push(name)
+      lines.push(`Rule name: ${name}`, 'Routes:')
       if (resources.network_cidrs.length) {
         lines.push(`  Network CIDRs: ${resources.network_cidrs.join(', ')}`)
       }
       if (resources.hostname_matchers.length) {
         lines.push(`  Hostname matchers: ${resources.hostname_matchers.join(', ')}`)
       }
+      lines.push(RULE_SEPARATOR)
     }
     core.info(lines.join('\n'))
     return

@@ -31615,6 +31615,8 @@ function getIDToken(aud) {
 
 /** The agent on every Piston runner, reached from the job and from its containers alike. */
 const AGENT_URL = 'http://172.17.0.1:7843/tunnel';
+/** The line under the rules' heading and under each rule the step prints. */
+const RULE_SEPARATOR = '-------------';
 async function run(surroundings) {
     const connectorName = getInput('connector_name');
     if (!connectorName) {
@@ -31668,20 +31670,25 @@ async function run(surroundings) {
     const answer = (await response.json());
     if (answer.state === 'connected') {
         setOutput('matched_rules', answer.matched_rules.map((rule) => rule.name).join(', '));
-        const lines = [`Piston tunnel to ${connectorName} connected`];
+        const lines = [`Piston tunnel to ${connectorName} connected`, ''];
         if (exitNode) {
-            lines.push(answer.connector_source_ip
-                ? `This job's public IP is now ${answer.connector_source_ip} (exit node ${connectorName})`
-                : `This job's internet traffic now leaves through ${connectorName}`);
+            lines.push(`Job IP (Exit Node Enabled): ${answer.connector_source_ip ?? 'not known yet'}`, '');
+        }
+        if (answer.matched_rules.length === 0) {
+            lines.push('Matched Connector Rules: none');
+        }
+        else {
+            lines.push('Matched Connector Rules', RULE_SEPARATOR);
         }
         for (const { name, authorized_resources: resources } of answer.matched_rules) {
-            lines.push(name);
+            lines.push(`Rule name: ${name}`, 'Routes:');
             if (resources.network_cidrs.length) {
                 lines.push(`  Network CIDRs: ${resources.network_cidrs.join(', ')}`);
             }
             if (resources.hostname_matchers.length) {
                 lines.push(`  Hostname matchers: ${resources.hostname_matchers.join(', ')}`);
             }
+            lines.push(RULE_SEPARATOR);
         }
         info(lines.join('\n'));
         return;
