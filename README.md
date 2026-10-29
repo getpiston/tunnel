@@ -31,6 +31,7 @@ jobs:
 |---|---|---|
 | `connector_name` | required | the network connector's name, as the console shows it |
 | `timeout` | `30` | how many seconds the tunnel may take to come up, at most 290 |
+| `internet_exit` | `false` | `true` sends all of the job's internet traffic out through the connector, whose **Internet exit** must be on; see [Internet exit](#internet-exit) |
 | `audience` | `https://api.runners.eu.prod.piston.sh` | the Piston api the job's token is for; set it only on a Piston other than production |
 
 | Output | Is |
@@ -65,7 +66,27 @@ the job reaches what its routing rules grant, by name or by address.
    the step ends once it is up.
 4. The job's traffic to what the matched rules grant goes through the
    connector, which checks and logs every connection and lookup. The rest of
-   the job's traffic leaves the runner as usual.
+   the job's traffic leaves the runner as usual, unless the step asked for the
+   connector's internet exit.
+
+## Internet exit
+
+With `internet_exit: true`, every connection the job makes to the internet
+goes out through the connector, so the sites and services it calls see your
+network's public address, which the step prints:
+
+```
+Piston tunnel to prod-vpc connected
+This job's public IP is now 203.0.113.7 (internet exit through prod-vpc)
+```
+
+Your private networks stay closed to the job unless a routing rule opens
+them. The connector's **Internet exit**, on its Settings tab, must be on, and
+then any job of your organization may ask for it, whether or not a routing
+rule matches the job. The job's lookups go to public DNS servers, through the
+connector like the rest of its internet traffic, so your network must let the
+connector reach them on port 53. Turning the internet exit off cuts the
+internet traffic of jobs already using it.
 
 ## Inside the job
 
@@ -79,7 +100,7 @@ the job reaches what its routing rules grant, by name or by address.
   Nameservers** settings, resolves to its real address, for every job of the
   connector, and the job reaches it only inside a rule's **Network CIDRs**.
 - **What takes the tunnel.** IPv4 TCP and UDP to the granted networks and
-  names. `ping` and IPv6 do not, and neither do the runner's own addresses,
+  names, and to the internet with the internet exit. `ping` and IPv6 do not, and neither do the runner's own addresses,
   Docker's `172.17.0.0/16` among them, whatever the rules hold.
 - **Fixed at the start.** The job keeps the authorized resources its tunnel opened with:
   an edit of the routing rules applies from the next job, so re-run the job
@@ -103,7 +124,8 @@ see the connector's
 | `no Piston agent answered at http://172.17.0.1:7843; is this job on a Piston runner?` | The job runs on a runner that is not Piston's | `runs-on:` a Piston runner label |
 | `a GitHub Actions token for this api is required` | The token is for another Piston than the one the runner asks | Leave `audience` unset |
 | `the repository's owner has no active installation` | Piston's GitHub App is not installed on the account that owns the repository | Install it on that account |
-| `no connector of that name admits the job` | No connector of exactly that name, case included, belongs to the organization that owns the repository, or none of its routing rules match the job. Piston does not say which | Check the name in the console, then the rules' **Job matchers**: a job for a tag or a pull request matches no rule that sets Branches, and a job with no `environment:` no rule that sets Environments |
+| `no connector of that name admits the job` | No connector of exactly that name, case included, belongs to the organization that owns the repository, or none of its routing rules match the job, which did not ask for the internet exit. Piston does not say which | Check the name in the console, then the rules' **Job matchers**: a job for a tag or a pull request matches no rule that sets Branches, and a job with no `environment:` no rule that sets Environments |
+| `the connector is not an internet exit` | The step sets `internet_exit: true` and the connector's **Internet exit** is off | Turn it on in the connector's Settings, or drop `internet_exit` |
 | `the tunnel to <name> did not come up within <N> s` | No instance of the connector is online, or the job and the connector could not get connected | The connector's **Instances** in the console, then its log, as its troubleshooting guide says. After a restart of the connector, a longer `timeout` waits for an instance |
 | `every instance of the connector holds 100 tunnels; more replicas take more` | The connector is full | Run more instances of it |
 | `every tunnel address of the connector is in use` | The connector's tunnel addresses are too few for the jobs running at once | Wider **Tunnel addresses**, on the connector's Advanced tab |

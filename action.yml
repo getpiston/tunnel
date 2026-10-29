@@ -2,7 +2,8 @@ name: Piston tunnel
 description: >
   Opens a tunnel from the job to one of its organization's Piston network
   connectors, so it reaches the services the connector's routing rules grant
-  it, by name or by address.
+  it, by name or by address, and, with internet_exit, sends its internet
+  traffic out through the connector.
 author: Piston
 branding:
   icon: shield
@@ -15,6 +16,12 @@ inputs:
     description: How many seconds the tunnel may take to come up, at most 290.
     required: false
     default: "30"
+  internet_exit:
+    description: >
+      Send all of the job's internet traffic out through the network
+      connector, whose internet exit must be on.
+    required: false
+    default: "false"
   audience:
     description: >
       The Piston api the job's token is for; set it only on a Piston other
