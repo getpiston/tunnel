@@ -73,7 +73,9 @@ the job reaches what its routing rules grant, by name or by address.
 
 With `internet_exit: true`, every connection the job makes to the internet
 goes out through the connector, so the sites and services it calls see your
-network's public address, which the step prints:
+network's public address. The step prints the address the connector reaches
+Piston from, which is that address unless your network sends the connector's
+traffic through a proxy or a NAT with several addresses:
 
 ```
 Piston tunnel to prod-vpc connected
@@ -124,8 +126,8 @@ see the connector's
 | `no Piston agent answered at http://172.17.0.1:7843; is this job on a Piston runner?` | The job runs on a runner that is not Piston's | `runs-on:` a Piston runner label |
 | `a GitHub Actions token for this api is required` | The token is for another Piston than the one the runner asks | Leave `audience` unset |
 | `the repository's owner has no active installation` | Piston's GitHub App is not installed on the account that owns the repository | Install it on that account |
-| `no connector of that name admits the job` | No connector of exactly that name, case included, belongs to the organization that owns the repository, or none of its routing rules match the job, which did not ask for the internet exit. Piston does not say which | Check the name in the console, then the rules' **Job matchers**: a job for a tag or a pull request matches no rule that sets Branches, and a job with no `environment:` no rule that sets Environments |
-| `the connector is not an internet exit` | The step sets `internet_exit: true` and the connector's **Internet exit** is off | Turn it on in the connector's Settings, or drop `internet_exit` |
+| `no connector of that name admits the job` | No connector of exactly that name, case included, belongs to the organization that owns the repository, or none of its routing rules match the job and, for a step that asks for it, the connector is no internet exit. Piston does not say which | Check the name in the console, then the rules' **Job matchers**: a job for a tag or a pull request matches no rule that sets Branches, and a job with no `environment:` no rule that sets Environments |
+| `the connector is not an internet exit` | The step sets `internet_exit: true`, a routing rule admits the job, and the connector's **Internet exit** is off | Turn it on in the connector's Settings, or drop `internet_exit` |
 | `the tunnel to <name> did not come up within <N> s` | No instance of the connector is online, or the job and the connector could not get connected | The connector's **Instances** in the console, then its log, as its troubleshooting guide says. After a restart of the connector, a longer `timeout` waits for an instance |
 | `every instance of the connector holds 100 tunnels; more replicas take more` | The connector is full | Run more instances of it |
 | `every tunnel address of the connector is in use` | The connector's tunnel addresses are too few for the jobs running at once | Wider **Tunnel addresses**, on the connector's Advanced tab |
