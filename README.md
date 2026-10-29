@@ -38,9 +38,17 @@ jobs:
 |---|---|
 | `matched_rules` | the names of the routing rules that admitted the job, comma separated |
 
+> [!WARNING]
+> The step resets every TCP connection open on the machine, the runner's own
+> and your job's. Whatever opened one before the step gets an error at once
+> and has to reconnect, so start a process that holds a connection, such as a
+> background service or a long download, after the step. Every run of the
+> step resets them again.
+
 The job needs `permissions: id-token: write`; without it the step fails at
-once and says so. The step ends when the tunnel is up, logging each routing
-rule that admitted the job and what it lets the job reach:
+once and says so. Once the tunnel is up, the step logs each routing rule that
+admitted the job and what it lets the job reach, then resets the machine's
+connections:
 
 ```
 Piston tunnel to prod-vpc connected
@@ -56,6 +64,7 @@ Rule name: metrics
 Routes:
   Hostname matchers: prometheus.monitoring.svc.cluster.local
 -------------
+Resetting all running connections!
 ```
 
 When the tunnel does not come up, the step fails with the reason; see
@@ -69,8 +78,9 @@ the job reaches what its routing rules grant, by name or by address.
    token says which repository, environment and branch the job runs for.
 2. Piston admits the job when one of the connector's routing rules matches it,
    and hands the tunnel to an online instance of the connector.
-3. The job and the connector get connected through an encrypted tunnel;
-   the step ends once it is up.
+3. The job and the connector get connected through an encrypted tunnel.
+   Once it is up, the step resets every connection the machine has open, so
+   none is left on a route the tunnel changed, and ends.
 4. The job's traffic to what the matched rules grant goes through the
    connector, which checks and logs every connection and lookup. The rest of
    the job's traffic leaves the runner as usual, unless the step asked for the
@@ -91,6 +101,7 @@ Piston tunnel to prod-vpc connected
 Job IP (Exit Node Enabled): 203.0.113.7
 
 Matched Connector Rules: none
+Resetting all running connections!
 ```
 
 The address reads `not known yet` when no instance of the connector was online
@@ -108,7 +119,9 @@ internet traffic of jobs already using it.
 
 - **Containers.** A job with `container:` needs nothing in its image for the
   step. The tunnel works the same in the container, in `docker run` steps
-  and in service containers.
+  and in service containers. In such a job the step runs inside the
+  container, where it cannot reset the machine's connections: it warns and
+  goes on.
 - **Names.** A name a rule's **Hostname matchers** match resolves to an
   address from the connector's tunnel addresses, `100.127.0.0/16` unless they
   were changed, and not to the host's own address: reach it by its name. A
@@ -123,8 +136,8 @@ internet traffic of jobs already using it.
 - **Fixed at the start.** The job keeps the authorized resources its tunnel opened with:
   an edit of the routing rules applies from the next job, so re-run the job
   to try one.
-- **One tunnel a job.** The tunnel lasts as long as the job. A repeat of the step with the same connector answers with the same tunnel; a
-  step naming another connector fails. When the connector's instance
+- **One tunnel a job.** The tunnel lasts as long as the job. A repeat of the step with the same connector answers with the same tunnel,
+  and resets the machine's connections again; a step naming another connector fails. When the connector's instance
   restarts, connections open at that moment fail, and new ones work again
   within two minutes.
 
@@ -150,6 +163,7 @@ see the connector's
 | `this VM is already connected to the network connector <name>` | An earlier step of the job opened a tunnel to another connector | One connector a job; give its rules everything the job needs |
 | `the tunnel to <name> stopped answering` | A repeat of the step found the tunnel silent for minutes: the connector's instance stopped, and no other took its place | The connector's **Instances** |
 | `the connector was deleted` | It was deleted in the console as the job asked | Point `connector_name` at a connector that exists |
+| A warning, `… failed, so some connections opened before this step may hang until they time out (…)`; the step passes | The machine's connections could not all be reset | Nothing, unless a process that started before the step hangs: start it after the step |
 | `the api cannot be reached: …`, `the api did not answer within the tunnel's timeout`, `the api answered …`, `the Piston agent at … did not answer …`, `the agent is stopping`, `the tunnel closed: …`, or any other message | A fault on Piston's side | Re-run the job; if it fails again, open an issue here with the run's URL |
 
 ## Help

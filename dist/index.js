@@ -28663,6 +28663,10 @@ module.exports = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("util");
 /************************************************************************/
 var __webpack_exports__ = {};
 
+;// CONCATENATED MODULE: external "node:child_process"
+const external_node_child_process_namespaceObject = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("node:child_process");
+// EXTERNAL MODULE: external "node:util"
+var external_node_util_ = __nccwpck_require__(7975);
 ;// CONCATENATED MODULE: external "os"
 const external_os_namespaceObject = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("os");
 ;// CONCATENATED MODULE: ./node_modules/@actions/core/lib/utils.js
@@ -31508,7 +31512,7 @@ function error(message, properties = {}) {
  * @param properties optional properties to add to the annotation.
  */
 function warning(message, properties = {}) {
-    issueCommand('warning', toCommandProperties(properties), message instanceof Error ? message.toString() : message);
+    command_issueCommand('warning', utils_toCommandProperties(properties), message instanceof Error ? message.toString() : message);
 }
 /**
  * Adds a notice issue
@@ -31617,6 +31621,15 @@ function getIDToken(aud) {
 const AGENT_URL = 'http://172.17.0.1:7843/tunnel';
 /** The line under the rules' heading and under each rule the step prints. */
 const RULE_SEPARATOR = '-------------';
+/**
+ * What the step runs last, once the tunnel is up: every TCP connection the machine has open destroyed, then the
+ * connection tracking of its containers' traffic flushed. A connection opened before the tunnel would otherwise go
+ * silent on a route the tunnel changed and hang until it timed out; reset, it fails at once and reconnects.
+ */
+const RESETS = [
+    ['ss', ['-K', '-t']],
+    ['conntrack', ['-F']],
+];
 async function run(surroundings) {
     const connectorName = getInput('connector_name');
     if (!connectorName) {
@@ -31691,6 +31704,16 @@ async function run(surroundings) {
             lines.push(RULE_SEPARATOR);
         }
         info(lines.join('\n'));
+        info('Resetting all running connections!');
+        // Best effort: a reset that fails leaves its connections to their own timeouts, never the step failed.
+        for (const [command, args] of RESETS) {
+            try {
+                await surroundings.privileged(command, args);
+            }
+            catch (failure) {
+                warning(`${[command, ...args].join(' ')} failed, so some connections opened before this step may hang until they time out ${describe(failure)}`);
+            }
+        }
         return;
     }
     setFailed(answer.reason ?? `the tunnel is ${answer.state}`);
@@ -31702,5 +31725,15 @@ function describe(failure) {
 ;// CONCATENATED MODULE: ./build/main.js
 
 
-run({ agentUrl: AGENT_URL, idToken: (audience) => getIDToken(audience) }).catch((failure) => setFailed(failure instanceof Error ? failure.message : String(failure)));
+
+
+const execFileAsync = (0,external_node_util_.promisify)(external_node_child_process_namespaceObject.execFile);
+run({
+    agentUrl: AGENT_URL,
+    idToken: (audience) => getIDToken(audience),
+    // -n: a runner that would ask for a password fails the command at once instead of waiting.
+    privileged: async (command, args) => {
+        await execFileAsync('sudo', ['-n', command, ...args]);
+    },
+}).catch((failure) => setFailed(failure instanceof Error ? failure.message : String(failure)));
 

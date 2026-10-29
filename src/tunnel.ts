@@ -7,6 +7,16 @@ export const AGENT_URL = 'http://172.17.0.1:7843/tunnel'
 /** The line under the rules' heading and under each rule the step prints. */
 const RULE_SEPARATOR = '-------------'
 
+/**
+ * What the step runs last, once the tunnel is up: every TCP connection the machine has open destroyed, then the
+ * connection tracking of its containers' traffic flushed. A connection opened before the tunnel would otherwise go
+ * silent on a route the tunnel changed and hang until it timed out; reset, it fails at once and reconnects.
+ */
+const RESETS: [string, string[]][] = [
+  ['ss', ['-K', '-t']],
+  ['conntrack', ['-F']],
+]
+
 /** The agent's answer to the ask: the tunnel's state. */
 type Status =
   | { state: 'connected'; matched_rules: MatchedRule[]; connector_source_ip?: string }
@@ -29,6 +39,8 @@ export interface Surroundings {
   agentUrl: string
   /** GitHub's OIDC token for the audience, as the toolkit mints it. */
   idToken: (audience: string) => Promise<string>
+  /** Runs a command as root; resolves once it exits 0, rejects otherwise. */
+  privileged: (command: string, args: string[]) => Promise<void>
 }
 
 export async function run(surroundings: Surroundings): Promise<void> {
@@ -111,6 +123,17 @@ export async function run(surroundings: Surroundings): Promise<void> {
       lines.push(RULE_SEPARATOR)
     }
     core.info(lines.join('\n'))
+    core.info('Resetting all running connections!')
+    // Best effort: a reset that fails leaves its connections to their own timeouts, never the step failed.
+    for (const [command, args] of RESETS) {
+      try {
+        await surroundings.privileged(command, args)
+      } catch (failure) {
+        core.warning(
+          `${[command, ...args].join(' ')} failed, so some connections opened before this step may hang until they time out ${describe(failure)}`
+        )
+      }
+    }
     return
   }
   core.setFailed(answer.reason ?? `the tunnel is ${answer.state}`)
