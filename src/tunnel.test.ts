@@ -10,6 +10,7 @@ vi.mock('@actions/core', async (importOriginal) => ({
   setFailed: vi.fn(),
   setOutput: vi.fn(),
   info: vi.fn(),
+  warning: vi.fn(),
 }))
 
 /** A stand-in agent: answers the ask with whatever the test scripted. */
@@ -43,6 +44,7 @@ function agent(ask: {
 }
 
 const idToken = vi.fn(async (audience: string) => `token-for-${audience}`)
+const privileged = vi.fn(async (_command: string, _args: string[]) => {})
 const failed = vi.mocked(core.setFailed)
 const info = vi.mocked(core.info)
 
@@ -86,7 +88,7 @@ describe('the step', () => {
         ],
       },
     })
-    await run({ agentUrl: stub.url, idToken })
+    await run({ agentUrl: stub.url, idToken, privileged })
     stub.close()
 
     expect(idToken).toHaveBeenCalledWith('https://api.runners.eu.test.piston.sh')
@@ -116,6 +118,27 @@ describe('the step', () => {
         '-------------',
       ].join('\n')
     )
+    expect(info).toHaveBeenLastCalledWith('Resetting all running connections!')
+    expect(privileged.mock.calls).toEqual([
+      ['ss', ['-K', '-t']],
+      ['conntrack', ['-F']],
+    ])
+    expect(failed).not.toHaveBeenCalled()
+  })
+
+  it('warns and goes on when a reset fails, without failing the step', async () => {
+    const stub = await agent({
+      status: 200,
+      body: { state: 'connected', connector_name: 'prod-vpc', matched_rules: [] },
+    })
+    privileged.mockRejectedValueOnce(new Error('sudo: ss: command not found'))
+    await run({ agentUrl: stub.url, idToken, privileged })
+    stub.close()
+
+    expect(core.warning).toHaveBeenCalledWith(
+      'ss -K -t failed, so some connections opened before this step may hang until they time out (sudo: ss: command not found)'
+    )
+    expect(privileged).toHaveBeenLastCalledWith('conntrack', ['-F'])
     expect(failed).not.toHaveBeenCalled()
   })
 
@@ -138,7 +161,7 @@ describe('the step', () => {
         status: 200,
         body: { state: 'connected', connector_name: 'prod-vpc', matched_rules: [], ...answer },
       })
-      await run({ agentUrl: stub.url, idToken })
+      await run({ agentUrl: stub.url, idToken, privileged })
       stub.close()
 
       expect(stub.asks).toEqual([expect.objectContaining({ exit_node: true })])
@@ -154,7 +177,7 @@ describe('the step', () => {
   it('fails the step at once without connector_name, and asks the agent nothing', async () => {
     process.env.INPUT_CONNECTOR_NAME = ''
     const stub = await agent({ status: 200, body: {} })
-    await run({ agentUrl: stub.url, idToken })
+    await run({ agentUrl: stub.url, idToken, privileged })
     stub.close()
 
     expect(failed).toHaveBeenCalledWith(expect.stringContaining('connector_name is required'))
@@ -170,10 +193,11 @@ describe('the step', () => {
         reason: 'no connector online for prod-vpc',
       },
     })
-    await run({ agentUrl: stub.url, idToken })
+    await run({ agentUrl: stub.url, idToken, privileged })
     stub.close()
 
     expect(failed).toHaveBeenCalledWith('no connector online for prod-vpc')
+    expect(privileged).not.toHaveBeenCalled()
   })
 
   it("fails the step with the agent's message when it refuses the ask", async () => {
@@ -184,7 +208,7 @@ describe('the step', () => {
         message: 'this VM is already connected to the network connector staging-vpc',
       },
     })
-    await run({ agentUrl: stub.url, idToken })
+    await run({ agentUrl: stub.url, idToken, privileged })
     stub.close()
 
     expect(failed).toHaveBeenCalledWith(
@@ -199,6 +223,7 @@ describe('the step', () => {
       idToken: async () => {
         throw new Error('Unable to get ACTIONS_ID_TOKEN_REQUEST_URL env variable')
       },
+      privileged,
     })
     stub.close()
 
@@ -211,7 +236,7 @@ describe('the step', () => {
     await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
     const { port } = server.address() as AddressInfo
     await new Promise((resolve) => server.close(resolve))
-    await run({ agentUrl: `http://127.0.0.1:${port}/tunnel`, idToken })
+    await run({ agentUrl: `http://127.0.0.1:${port}/tunnel`, idToken, privileged })
 
     expect(failed).toHaveBeenCalledWith(
       `no Piston agent answered at http://127.0.0.1:${port}; is this job on a Piston runner?`
@@ -222,7 +247,7 @@ describe('the step', () => {
     const server = http.createServer((request) => request.socket.destroy())
     await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
     const { port } = server.address() as AddressInfo
-    await run({ agentUrl: `http://127.0.0.1:${port}/tunnel`, idToken })
+    await run({ agentUrl: `http://127.0.0.1:${port}/tunnel`, idToken, privileged })
     server.close()
 
     expect(failed).toHaveBeenCalledWith(
@@ -232,7 +257,7 @@ describe('the step', () => {
 
   it('refuses a timeout that is not a whole number of seconds before asking anything', async () => {
     process.env.INPUT_TIMEOUT = 'soon'
-    await run({ agentUrl: 'http://127.0.0.1:9/tunnel', idToken })
+    await run({ agentUrl: 'http://127.0.0.1:9/tunnel', idToken, privileged })
 
     expect(failed).toHaveBeenCalledWith(
       "timeout is a whole number of seconds from 1 to 290, not 'soon'"
