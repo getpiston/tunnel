@@ -31622,9 +31622,10 @@ const AGENT_URL = 'http://172.17.0.1:7843/tunnel';
 /** The line under the rules' heading and under each rule the step prints. */
 const RULE_SEPARATOR = '-------------';
 /**
- * What the step runs last, once the tunnel is up: every TCP connection the machine has open destroyed, then the
- * connection tracking of its containers' traffic flushed. A connection opened before the tunnel would otherwise go
- * silent on a route the tunnel changed and hang until it timed out; reset, it fails at once and reconnects.
+ * What the step runs last, once the tunnel is up, unless reset_connections is false: every TCP connection the
+ * machine has open destroyed, then the connection tracking of its containers' traffic flushed. A connection opened
+ * before the tunnel would otherwise go silent on a route the tunnel changed and hang until it timed out; reset, it
+ * fails at once and reconnects.
  */
 const RESETS = [
     ['ss', ['-K', '-t']],
@@ -31643,6 +31644,7 @@ async function run(surroundings) {
         return;
     }
     const exitNode = getBooleanInput('exit_node');
+    const resetConnections = getBooleanInput('reset_connections');
     let token;
     try {
         token = await surroundings.idToken(getInput('audience'));
@@ -31704,14 +31706,16 @@ async function run(surroundings) {
             lines.push(RULE_SEPARATOR);
         }
         info(lines.join('\n'));
-        info('Resetting all running connections!');
-        // Best effort: a reset that fails leaves its connections to their own timeouts, never the step failed.
-        for (const [command, args] of RESETS) {
-            try {
-                await surroundings.privileged(command, args);
-            }
-            catch (failure) {
-                warning(`${[command, ...args].join(' ')} failed, so some connections opened before this step may hang until they time out ${describe(failure)}`);
+        if (resetConnections) {
+            info('Resetting all running connections!');
+            // Best effort: a reset that fails leaves its connections to their own timeouts, never the step failed.
+            for (const [command, args] of RESETS) {
+                try {
+                    await surroundings.privileged(command, args);
+                }
+                catch (failure) {
+                    warning(`${[command, ...args].join(' ')} failed, so some connections opened before this step may hang until they time out ${describe(failure)}`);
+                }
             }
         }
         return;

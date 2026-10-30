@@ -22,6 +22,12 @@ inputs:
       connector, which must be an exit node.
     required: false
     default: "false"
+  reset_connections:
+    description: >
+      Reset every TCP connection open on the machine once the tunnel is up, so
+      none is left on a route the tunnel changed; false keeps them.
+    required: false
+    default: "true"
   audience:
     description: >
       The Piston api the job's token is for; set it only on a Piston other
