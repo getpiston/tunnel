@@ -28,6 +28,13 @@ inputs:
       none is left on a route the tunnel changed; false keeps them.
     required: false
     default: "true"
+  tcp_buffer_max_mib:
+    description: >
+      The most each TCP connection on the machine may buffer each way, in MiB,
+      1 to 1024. The step raises the machine's maximums to it, so a transfer
+      through a connector far from Piston's runners can keep more in flight.
+    required: false
+    default: "32"
   audience:
     description: >
       The Piston api the job's token is for; set it only on a Piston other

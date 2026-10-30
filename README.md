@@ -33,6 +33,7 @@ jobs:
 | `timeout` | `30` | how many seconds the tunnel may take to come up, at most 290 |
 | `exit_node` | `false` | `true` sends all of the job's internet traffic out through the connector, which must be an exit node; see [Exit node](#exit-node) |
 | `reset_connections` | `true` | `false` keeps the connections open on the machine when the tunnel comes up; see the warning below |
+| `tcp_buffer_max_mib` | `32` | the most each TCP connection on the machine may buffer each way, in MiB, 1 to 1024; see [Inside the job](#inside-the-job) |
 | `audience` | `https://api.runners.eu.prod.piston.sh` | the Piston api the job's token is for; set it only on a Piston other than production |
 
 | Output | Is |
@@ -68,6 +69,7 @@ Rule name: metrics
 Routes:
   Hostname matchers: prometheus.monitoring.svc.cluster.local
 -------------
+Raising TCP buffers to 32 MiB
 Resetting all running connections!
 ```
 
@@ -83,9 +85,10 @@ the job reaches what its routing rules grant, by name or by address.
 2. Piston admits the job when one of the connector's routing rules matches it,
    and hands the tunnel to an online instance of the connector.
 3. The job and the connector get connected through an encrypted tunnel.
-   Once it is up, the step resets every connection the machine has open, so
-   none is left on a route the tunnel changed, and ends; with
-   `reset_connections: false` it ends without the reset.
+   Once it is up, the step raises the machine's TCP buffers, then resets
+   every connection the machine has open, so none is left on a route the
+   tunnel changed, and ends; with `reset_connections: false` it ends without
+   the reset.
 4. The job's traffic to what the matched rules grant goes through the
    connector, which checks and logs every connection and lookup. The rest of
    the job's traffic leaves the runner as usual, unless the step asked for the
@@ -106,6 +109,7 @@ Piston tunnel to prod-vpc connected
 Job IP (Exit Node Enabled): 203.0.113.7
 
 Matched Connector Rules: none
+Raising TCP buffers to 32 MiB
 Resetting all running connections!
 ```
 
@@ -141,6 +145,12 @@ internet traffic of jobs already using it.
 - **Fixed at the start.** The job keeps the authorized resources its tunnel opened with:
   an edit of the routing rules applies from the next job, so re-run the job
   to try one.
+- **Buffers.** A transfer through the tunnel runs at most at what it keeps in
+  flight per round trip, so a connector far from Piston's runners needs larger
+  buffers than a machine allows by default. The step raises the machine's TCP
+  buffer maximums to `tcp_buffer_max_mib`, 32 MiB unless set; a connection
+  grows into them only as fast as it needs. In a job with `container:`, the
+  step cannot reach them: it warns and goes on.
 - **One tunnel a job.** The tunnel lasts as long as the job. A repeat of the step with the same connector answers with the same tunnel,
   and resets the machine's connections again; a step naming another connector fails. When the connector's instance
   restarts, connections open at that moment fail, and new ones work again
@@ -169,6 +179,8 @@ see the connector's
 | `the tunnel to <name> stopped answering` | A repeat of the step found the tunnel silent for minutes: the connector's instance stopped, and no other took its place | The connector's **Instances** |
 | `the connector was deleted` | It was deleted in the console as the job asked | Point `connector_name` at a connector that exists |
 | A warning, `… failed, so some connections opened before this step may hang until they time out (…)`; the step passes | The machine's connections could not all be reset | Nothing, unless a process that started before the step hangs: start it after the step |
+| A warning, `the machine's TCP buffers stay at their defaults, which can slow transfers through a far connector (…)`; the step passes | The step could not raise the machine's TCP buffers, as in a `container:` job | Nothing, unless transfers through a far connector are slow |
+| `tcp_buffer_max_mib is a whole number of MiB from 1 to 1024, not '…'` | The input is out of range | A whole number from 1 to 1024 |
 | `the api cannot be reached: …`, `the api did not answer within the tunnel's timeout`, `the api answered …`, `the Piston agent at … did not answer …`, `the agent is stopping`, `the tunnel closed: …`, or any other message | A fault on Piston's side | Re-run the job; if it fails again, open an issue here with the run's URL |
 
 ## Help
