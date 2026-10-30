@@ -31643,6 +31643,12 @@ async function run(surroundings) {
         setFailed(`timeout is a whole number of seconds from 1 to 290, not '${timeoutInput}'`);
         return;
     }
+    const bufferInput = getInput('tcp_buffer_max_mib');
+    const bufferMebibytes = Number(bufferInput);
+    if (!/^\d+$/.test(bufferInput) || bufferMebibytes < 1 || bufferMebibytes > 1024) {
+        setFailed(`tcp_buffer_max_mib is a whole number of MiB from 1 to 1024, not '${bufferInput}'`);
+        return;
+    }
     const exitNode = getBooleanInput('exit_node');
     const resetConnections = getBooleanInput('reset_connections');
     let token;
@@ -31706,6 +31712,21 @@ async function run(surroundings) {
             lines.push(RULE_SEPARATOR);
         }
         info(lines.join('\n'));
+        // A connection through a far connector runs at what it keeps in flight, which the machine's maximums cap; Linux's own minimums and defaults stay.
+        const bytes = bufferMebibytes * 1024 * 1024;
+        info(`Raising TCP buffers to ${bufferMebibytes} MiB`);
+        try {
+            await surroundings.privileged('sysctl', [
+                '-w',
+                `net.core.rmem_max=${bytes}`,
+                `net.core.wmem_max=${bytes}`,
+                `net.ipv4.tcp_rmem=4096 131072 ${bytes}`,
+                `net.ipv4.tcp_wmem=4096 16384 ${bytes}`,
+            ]);
+        }
+        catch (failure) {
+            warning(`the machine's TCP buffers stay at their defaults, which can slow transfers through a far connector ${describe(failure)}`);
+        }
         if (resetConnections) {
             info('Resetting all running connections!');
             // Best effort: a reset that fails leaves its connections to their own timeouts, never the step failed.

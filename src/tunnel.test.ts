@@ -53,6 +53,7 @@ beforeEach(() => {
   process.env.INPUT_TIMEOUT = '30'
   process.env.INPUT_EXIT_NODE = 'false'
   process.env.INPUT_RESET_CONNECTIONS = 'true'
+  process.env.INPUT_TCP_BUFFER_MAX_MIB = '32'
   process.env.INPUT_AUDIENCE = 'https://api.runners.eu.test.piston.sh'
 })
 
@@ -62,6 +63,7 @@ afterEach(() => {
   delete process.env.INPUT_TIMEOUT
   delete process.env.INPUT_EXIT_NODE
   delete process.env.INPUT_RESET_CONNECTIONS
+  delete process.env.INPUT_TCP_BUFFER_MAX_MIB
   delete process.env.INPUT_AUDIENCE
 })
 
@@ -120,11 +122,38 @@ describe('the step', () => {
         '-------------',
       ].join('\n')
     )
+    expect(info).toHaveBeenCalledWith('Raising TCP buffers to 32 MiB')
     expect(info).toHaveBeenLastCalledWith('Resetting all running connections!')
     expect(privileged.mock.calls).toEqual([
+      [
+        'sysctl',
+        [
+          '-w',
+          'net.core.rmem_max=33554432',
+          'net.core.wmem_max=33554432',
+          'net.ipv4.tcp_rmem=4096 131072 33554432',
+          'net.ipv4.tcp_wmem=4096 16384 33554432',
+        ],
+      ],
       ['ss', ['-K', '-t']],
       ['conntrack', ['-F']],
     ])
+    expect(failed).not.toHaveBeenCalled()
+  })
+
+  it('warns and goes on when the buffers cannot be raised, still resetting', async () => {
+    const stub = await agent({
+      status: 200,
+      body: { state: 'connected', connector_name: 'prod-vpc', matched_rules: [] },
+    })
+    privileged.mockRejectedValueOnce(new Error('sudo: a password is required'))
+    await run({ agentUrl: stub.url, idToken, privileged })
+    stub.close()
+
+    expect(core.warning).toHaveBeenCalledWith(
+      "the machine's TCP buffers stay at their defaults, which can slow transfers through a far connector (sudo: a password is required)"
+    )
+    expect(privileged).toHaveBeenLastCalledWith('conntrack', ['-F'])
     expect(failed).not.toHaveBeenCalled()
   })
 
@@ -133,7 +162,9 @@ describe('the step', () => {
       status: 200,
       body: { state: 'connected', connector_name: 'prod-vpc', matched_rules: [] },
     })
-    privileged.mockRejectedValueOnce(new Error('sudo: ss: command not found'))
+    privileged
+      .mockResolvedValueOnce()
+      .mockRejectedValueOnce(new Error('sudo: ss: command not found'))
     await run({ agentUrl: stub.url, idToken, privileged })
     stub.close()
 
@@ -153,7 +184,7 @@ describe('the step', () => {
     await run({ agentUrl: stub.url, idToken, privileged })
     stub.close()
 
-    expect(privileged).not.toHaveBeenCalled()
+    expect(privileged.mock.calls.map(([command]) => command)).toEqual(['sysctl'])
     expect(info).not.toHaveBeenCalledWith('Resetting all running connections!')
     expect(failed).not.toHaveBeenCalled()
   })
@@ -271,12 +302,22 @@ describe('the step', () => {
     )
   })
 
-  it('refuses a timeout that is not a whole number of seconds before asking anything', async () => {
-    process.env.INPUT_TIMEOUT = 'soon'
+  it.each([
+    {
+      input: 'INPUT_TIMEOUT',
+      value: 'soon',
+      message: "timeout is a whole number of seconds from 1 to 290, not 'soon'",
+    },
+    {
+      input: 'INPUT_TCP_BUFFER_MAX_MIB',
+      value: '2048',
+      message: "tcp_buffer_max_mib is a whole number of MiB from 1 to 1024, not '2048'",
+    },
+  ])('refuses $input $value before asking anything', async ({ input, value, message }) => {
+    process.env[input] = value
     await run({ agentUrl: 'http://127.0.0.1:9/tunnel', idToken, privileged })
 
-    expect(failed).toHaveBeenCalledWith(
-      "timeout is a whole number of seconds from 1 to 290, not 'soon'"
-    )
+    expect(failed).toHaveBeenCalledWith(message)
+    expect(privileged).not.toHaveBeenCalled()
   })
 })
