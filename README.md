@@ -32,6 +32,7 @@ jobs:
 | `connector_name` | required | the network connector's name, as the console shows it |
 | `timeout` | `30` | how many seconds the tunnel may take to come up, at most 290 |
 | `exit_node` | `false` | `true` sends all of the job's internet traffic out through the connector, which must be an exit node; see [Exit node](#exit-node) |
+| `reset_connections` | `true` | `false` keeps the connections open on the machine when the tunnel comes up; see the warning below |
 | `audience` | `https://api.runners.eu.prod.piston.sh` | the Piston api the job's token is for; set it only on a Piston other than production |
 
 | Output | Is |
@@ -43,7 +44,10 @@ jobs:
 > and your job's. Whatever opened one before the step gets an error at once
 > and has to reconnect, so start a process that holds a connection, such as a
 > background service or a long download, after the step. Every run of the
-> step resets them again.
+> step resets them again. `reset_connections: false` keeps them, and then a
+> connection on a route the tunnel changed hangs until it times out instead;
+> with `exit_node`, that is every internet connection, the runner's own
+> included.
 
 The job needs `permissions: id-token: write`; without it the step fails at
 once and says so. Once the tunnel is up, the step logs each routing rule that
@@ -80,7 +84,8 @@ the job reaches what its routing rules grant, by name or by address.
    and hands the tunnel to an online instance of the connector.
 3. The job and the connector get connected through an encrypted tunnel.
    Once it is up, the step resets every connection the machine has open, so
-   none is left on a route the tunnel changed, and ends.
+   none is left on a route the tunnel changed, and ends; with
+   `reset_connections: false` it ends without the reset.
 4. The job's traffic to what the matched rules grant goes through the
    connector, which checks and logs every connection and lookup. The rest of
    the job's traffic leaves the runner as usual, unless the step asked for the

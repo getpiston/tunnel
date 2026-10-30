@@ -52,6 +52,7 @@ beforeEach(() => {
   process.env.INPUT_CONNECTOR_NAME = 'prod-vpc'
   process.env.INPUT_TIMEOUT = '30'
   process.env.INPUT_EXIT_NODE = 'false'
+  process.env.INPUT_RESET_CONNECTIONS = 'true'
   process.env.INPUT_AUDIENCE = 'https://api.runners.eu.test.piston.sh'
 })
 
@@ -60,6 +61,7 @@ afterEach(() => {
   delete process.env.INPUT_CONNECTOR_NAME
   delete process.env.INPUT_TIMEOUT
   delete process.env.INPUT_EXIT_NODE
+  delete process.env.INPUT_RESET_CONNECTIONS
   delete process.env.INPUT_AUDIENCE
 })
 
@@ -139,6 +141,20 @@ describe('the step', () => {
       'ss -K -t failed, so some connections opened before this step may hang until they time out (sudo: ss: command not found)'
     )
     expect(privileged).toHaveBeenLastCalledWith('conntrack', ['-F'])
+    expect(failed).not.toHaveBeenCalled()
+  })
+
+  it("leaves the machine's connections alone when reset_connections is false", async () => {
+    process.env.INPUT_RESET_CONNECTIONS = 'false'
+    const stub = await agent({
+      status: 200,
+      body: { state: 'connected', connector_name: 'prod-vpc', matched_rules: [] },
+    })
+    await run({ agentUrl: stub.url, idToken, privileged })
+    stub.close()
+
+    expect(privileged).not.toHaveBeenCalled()
+    expect(info).not.toHaveBeenCalledWith('Resetting all running connections!')
     expect(failed).not.toHaveBeenCalled()
   })
 
